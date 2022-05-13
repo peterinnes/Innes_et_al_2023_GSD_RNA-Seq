@@ -1,0 +1,31 @@
+habitat	pop'n	id	sample_no	fastq	notes
+dune	1	17	1	Kane-602-1_S1_R1_001.trimmed.fq.gz	
+dune	1	7	2	Kane-602-2_S2_R1_001.trimmed.fq.gz	
+dune	1	18	3	Kane-602-3_S3_R1_001.trimmed.fq.gz	
+dune	1	16	4	Kane-602-4_S4_R1_001.trimmed.fq.gz	
+dune	1	6	5	NA	not selected for RNAseq
+dune	2	15	6	NA	not selected for RNAseq
+dune	2	2	7	Kane-602-7_S5_R1_001.trimmed.fq.gz	
+dune	2	8	8	Kane-602-8_S6_R1_001.trimmed.fq.gz	
+dune	2	11	9	Kane-602-9_S7_R1_001.trimmed.fq.gz	
+dune	2	17	10	Kane-602-10_S8_R1_001.trimmed.fq.gz	
+dune	3	20	11	Kane-602-11_S9_R1_001.trimmed.fq.gz	
+dune	3	2	12	Kane-602-12_S10_R1_001.trimmed.fq.gz	
+dune	3	10	13	NA	not selected for RNAseq
+dune	3	8	14	Kane-602-14_S11_R1_001.trimmed.fq.gz	
+dune	3	7	15	Kane-602-15_S12_R1_001.trimmed.fq.gz	
+non-dune	1	12	16	Kane-602-16_S13_R1_001.trimmed.fq.gz	
+non-dune	1	16	17	Kane-602-17_S14_R1_001.trimmed.fq.gz	
+non-dune	1	18	18	Kane-602-18_S15_R1_001.trimmed.fq.gz	
+non-dune	1	11	19	Kane-602-19_S16_R1_001.trimmed.fq.gz	
+non-dune	1	1	20	NA	not selected for RNAseq
+non-dune	2	3	21	Kane-602-21_S17_R1_001.trimmed.fq.gz	
+non-dune	2	8	22	NA	not selected for RNAseq
+non-dune	2	4	23	Kane-602-23_S18_R1_001.trimmed.fq.gz	
+non-dune	2	2	24	Kane-602-24_S19_R1_001.trimmed.fq.gz	
+non-dune	2	1	25	Kane-602-25_S20_R1_001.trimmed.fq.gz	
+non-dune	3	14	26	Kane-602-26_S21_R1_001.trimmed.fq.gz	
+non-dune	3	6	27	Kane-602-27_S22_R1_001.trimmed.fq.gz	
+non-dune	3	5	28	Kane-602-28_S23_R1_001.trimmed.fq.gz	
+non-dune	3	2	29	NA	not selected for RNAseq
+non-dune	3	18	30	Kane-602-30_S24_R1_001.trimmed.fq.gz	
