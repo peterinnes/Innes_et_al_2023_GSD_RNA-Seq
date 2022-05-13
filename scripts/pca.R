@@ -139,9 +139,9 @@ plot_expr_pca <-  ggplot(data=expr_pca.site_sc, aes(x = PC1, y = PC2, color=habi
 
 #### splicing PCA? ####
 # Using the "% Spliced In" values from rMATS output. In this data set, each row is an AS event, each column is a plant, so need to transpose before PCA
-splice_pca_df <- all_AS_events[,4:27] %>%
+splice_pca_df <- all_AS_events_PSI[,4:27] %>%
   lapply(as.numeric) %>% as.data.frame() %>%
-  na.omit()
+  na.omit() 
 splice_pca <- rda(t(splice_pca_df), scale = F, center=T)
 
 splice_pve_df <- data.frame(summary(eigenvals(splice_pca)))[2,1:12] %>%

@@ -1,5 +1,6 @@
 GSD H. petiolaris transcriptomics
-=================================
+====================================
+
 This directory contains scripts and results files for the analysis of RNA-seq data from H. petiolaris populations in the Great Sand Dunes National Park.
 
 ##### Step 1. Trim the data

@@ -107,7 +107,7 @@ notsig_data <- expr_manhattan_df %>%
   sample_frac(0.1)
 
 expr_manhattan_df_reduced <- bind_rows(sig_data, notsig_data) %>%
-  filter(!id %in% c("mRNA:Ha412HOChr16g0770771"))
+  filter(!id %in% c("mRNA:Ha412HOChr16g0770771")) #filter out this insane outlier for vis purposes
 
 # get middle position of each chromosome for axis label
 axis_set_expr <- expr_manhattan_df %>%
