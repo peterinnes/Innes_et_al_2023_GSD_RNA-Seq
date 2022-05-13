@@ -1,0 +1,1 @@
+rmats.py --b1 data/STAR_bams/dune_bams_list.txt --b2 data/STAR_bams/non-dune_bams_list.txt --gtf data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.gtf -t single --libType fr-firststrand --readLength 75 --variable-read-length --nthread 1 --allow-clipping --od analysis/rMATS --tmp analysis/rMATS/tmp
