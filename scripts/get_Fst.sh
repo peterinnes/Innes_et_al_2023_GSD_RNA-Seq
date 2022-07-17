@@ -17,7 +17,10 @@ echo 'calculating per-site Fst'
 vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --stdout \
     > Fst_per_site.weir.txt
 
-echo 'calculating windowed Fst'
+echo 'calculating 1kb windowed Fst'
 vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 1000 --fst-window-step 1000 --stdout \
     > Fst_1Kb_windows.weir.txt
 
+echo 'calculating 10kb windowed Fst'
+vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 10000 --fst-window-step 10000 --stdout \
+    > Fst_10Kb_windows.weir.txt

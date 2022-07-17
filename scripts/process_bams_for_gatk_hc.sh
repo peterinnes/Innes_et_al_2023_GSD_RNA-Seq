@@ -1,3 +1,6 @@
+# process sorted bam files for GATK HaplotypeCaller
+# based on GATK RNA-seq best practices: https://github.com/gatk-workflows/gatk4-rnaseq-germline-snps-indels
+
 ref=~/gsd_RNA-seq/data/ref_genome_Ha412HO/Ha412HOv2.0-20181130.fasta
 bam_dir=~/gsd_RNA-seq/data/STAR_bams/
 
