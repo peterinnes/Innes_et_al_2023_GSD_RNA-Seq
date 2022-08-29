@@ -69,7 +69,7 @@ ggbarstats(
 
 # DEXSeq (DEU)
 deu_gene_regions.bed <- left_join(deu_genes_noLFCthreshold, expressed_genes_gff) %>%
-  dplyr::select(chrom, start, end) %>%
+  dplyr::select(chrom, start, end, Ha412_gene ) %>%
   mutate(start=start-1)
 
 write.table(deu_gene_regions.bed, file = "analysis/DEXSeq/deu_gene_regions.bed", sep = "\t", quote = F, row.names = F, col.names = F)
@@ -109,7 +109,7 @@ write.table(rmats_ds_gene_regions.bed, file = "analysis/rMATS/results_2022-07-14
 
 # number ds genes outside of inversions = tot ds genes - ds genes inside inversions = 1038 - 159 = 879
 
-#  count number of expressed genes of any kind outside inversions = 42056; non-DS genes outside inversions = 29086 - 879 = 28207
+#  count number of ds genes of any kind outside inversions = 42056; non-DS genes outside inversions = 29086 - 879 = 28207
 # bedtools intersect -v -a data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.expressed_genes_gff.tmp -b analysis/inversions/inversion_regions.bed | grep -v 'Chr00' | cut -f1 | sort | uniq -c | tr -s ' ' | cut -d ' ' -f 2 | paste -sd+ | bc
 
 ds_inv_enrichment_table <- data.frame("DS" = c(159, 879), "non-DS" = c(2875,28207),

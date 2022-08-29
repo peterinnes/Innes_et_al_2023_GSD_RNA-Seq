@@ -79,9 +79,6 @@ rownames(deu_genes_lfc1) <- NULL
 write.table(deu_genes_noLFCthreshold, file="analysis/DEXSeq/DEU_genes_padj.05.tsv", row.names = F, quote = F, sep = '\t')
 write.table(deu_genes_noLFCthreshold$Ha412_gene, file="analysis/GO_analysis/study_DEU_genes_noLFCthreshold_padj.05.txt", row.names = F, quote = F, sep = '\t', col.names = F)
 write.table(deu_genes_lfc1, file="analysis/DEXSeq/DEU_genes_LFC1_padj.05.tsv", row.names = F, quote = F, sep = '\t')
-# plot DEU for Ha412HOChr09g0373721, the only gene found to be DS in all three splicing analyses (DEXSeq, rMATS, and parents_diff_v2.py)
-plotDEXSeq(object = dxr, geneID = "gene_Ha412HOChr05g0235401", splicing = T, expression = F, fitExpToVar="habitat",displayTranscripts = F, legend = T, color = c("gold2", "forestgreen"),)
-
 
 #### make dataframe of rlog-transforms exon counts for use in PCA ####
 rlog_exon_counts <- DESeq2::rlog(DEXSeq::counts(dxr, normalized=FALSE))
@@ -155,3 +152,11 @@ deu_manhattan_plot <- ggplot(deu_manhattan_df_reduced, aes(x=startcum, y=log2fol
                size=6, color="red", alpha=0.8)
 
 ggsave("figures/deu_manhattan.png",plot = deu_manhattan_plot, device = "png", width = 8, height = 6, units = "in", dpi = 300)
+
+#### look at deu genes within chr11 inversion ####
+chr11_inv_ds_genes <- read.table("analysis/DEXSeq/deu_genes_Chr11_inv.txt", col.names = "Ha412_gene") %>%
+  inner_join(rmats_ds_genes)
+
+## plot DEU for Ha412HOChr09g0373721, the most ds gene in all three splicing analyses (DEXSeq, rMATS, and parents_diff_v2.py)
+
+plotDEXSeq(object = dxr, geneID = "gene_Ha412HOChr11g0487911", splicing = T, expression = F, fitExpToVar="habitat",displayTranscripts = F, legend = T, color = c("gold2", "forestgreen"), names = F)

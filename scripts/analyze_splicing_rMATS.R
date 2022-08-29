@@ -91,6 +91,7 @@ all_AS_events_PSI <- all_AS_events %>%
 
 dim(all_AS_events_PSI)
 #sum(rmatsout_summary$TotalEventsJCEC)
+write.table(all_AS_events_PSI, "analysis/rMATS/results_2022-07-14/all_AS_events_PSI.txt", row.names = F, quote = F, sep = '\t')
 
 sig_AS_events <- subset(all_AS_events, FDR<.05)
 
@@ -204,7 +205,9 @@ rmats_dexseq_overlap_genes <- inner_join(rmats_ds_genes,
 rmats_dexseq_union_genes <- full_join(rmats_ds_genes, deu_genes_noLFCthreshold)
 rmats_dexseq_deseq2_overlap_genes <- inner_join(rmats_dexseq_overlap_genes, de_genes_noLFCthreshold )
 
-#ds_overlap_genes <- inner_join(rmats_dexseq_overlap_genes, set4) # set4 is parents_diffv2 genes
+parents_diff_ds_genes <- read.table("analysis/GO_analysis/study_DS_parents_diff_genes.txt", col.names = "Ha412_gene")
+all_ds_overlap_genes <- inner_join(rmats_ds_genes, deu_genes_noLFCthreshold) %>%
+  inner_join(parents_diff_ds_genes)
 
 
 write.table(rmats_dexseq_overlap_genes, file="analysis/rmats_dexseq_overlap_genes.txt", quote = F, row.names = F, sep = "\t")

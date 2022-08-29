@@ -3,7 +3,7 @@
 #if (!requireNamespace("BiocManager", quietly = TRUE))
   #install.packages("BiocManager")
 #install.packages("devtools")
-BiocManager::install("SNPRelate")
+#BiocManager::install("SNPRelate")
 #devtools::install_github("thomasp85/patchwork")
 
 library(SNPRelate)
@@ -13,14 +13,12 @@ library(ggplot2)
 library(patchwork)
 library(vegan)
 
-#### SNP PCA ####
+#### SNP pca ####
 
 # convert VCF file to GDS format
 vcf.fn <- "data/hc_out/dune_non-dune.nHet_filtered.hc.vcf.gz"
 snpgdsVCF2GDS(vcf.fn, "analysis/pca/vcf.gds", method = "biallelic.only")
 snpgdsSummary("analysis/pca/vcf.gds")
-
-#### Analysis ####
 
 # habitat information from text file
 pop_code <- scan("analysis/pca/pops.txt", what=character()) # "pops.txt" should be a single line with "habitat" i.e. ecotype noted for each sample, in quotes, tab separated. order needs to match order of samples in the vcf.
@@ -55,6 +53,9 @@ snp_pca_df <- data.frame(sample.id = snp_pca$sample.id,
                   habitat = factor(pop_code)[match(snp_pca$sample.id, sample.id)],
                   EV1 = snp_pca$eigenvect[,1],    # the first eigenvector
                   EV2 = snp_pca$eigenvect[,2],    # the second eigenvector
+                  EV3 = snp_pca$eigenvect[,3],
+                  EV4 = snp_pca$eigenvect[,4],
+                  EV5 = snp_pca$eigenvect[,5],
                   stringsAsFactors = FALSE)
 #head(snp_pca_df)
 
@@ -79,14 +80,26 @@ plot_snp_pca <- ggplot(snp_pca_df, aes(x=EV1, y=EV2, color=`habitat`, shape=`hab
         #legend.box.margin=margin(0,0,0,0)) +
   scale_color_manual(values=c("gold2", "forestgreen")) +
   scale_shape_manual(values=c(17,19))
-  
 
-#### EXPRESSION PCA ####
+plot_snp_pca_5v4 <- ggplot(snp_pca_df, aes(x=EV4, y=EV5, color=`habitat`, shape=`habitat`)) + 
+  geom_point(size=10, alpha=.5) +
+  labs(x=paste0("PC4 ","(",round(snp_pve_df[4,2], 2),"%)"), y=paste0("PC5 ", "(",round(snp_pve_df[5,2],2),"%)"), title="SNPs") +
+  theme_bw() +
+  theme(text = element_text(size=36),#,
+        #legend.title=element_blank(),
+        legend.position = "none") +
+  #legend.margin=margin(0,0,0,0),
+  #legend.box.margin=margin(0,0,0,0)) +
+  scale_color_manual(values=c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(17,19))
+
+#### EXPRESSION pca ####
 
 #BiocManager::install('PCAtools')
 
 # PCA with 'regularized log'-transformed gene expression levels from DESeq2 (see analyze_differential_expression_DESeq2.R script for details on how we get the object rlog_counts.)
 sample_table_deseq2 <- read.table("analysis/DESeq2/sample_table.txt", header=T)
+rlog_counts <- read.csv("analysis/pca/rlog-transformed_expression_counts.csv")
 expr_pca <- rda(t(rlog_counts), scale = F, center=T) #have to transpose the dataframe
 str(expr_pca)
 summary(expr_pca)
@@ -120,7 +133,7 @@ plot_expr_pca <-  ggplot(data=expr_pca.site_sc, aes(x = PC1, y = PC2, color=habi
   scale_color_manual(values=c("gold2", "forestgreen")) +
   scale_shape_manual(values=c(17,19))
 
-#### splicing PCA? ####
+#### SPLICING pca ####
 # Using the "% Spliced In" i.e. PSI values from rMATS output. In this data set, each row is an AS event, each column is a plant, so need to transpose before PCA
 rmats_splice_pca_df <- all_AS_events_PSI[,4:27] %>%
   lapply(as.numeric) %>% as.data.frame() %>%
@@ -176,6 +189,35 @@ plot_dexseq_splice_pca <-  ggplot(data=dexseq_splice_pca.site_sc, aes(x = PC1, y
         legend.box.margin=margin(0,0,0,0)) +
   scale_color_manual(values=c("gold2", "forestgreen")) +
   scale_shape_manual(values=c(17,19))
+
+# leafcutter PCA (intron excision ratios)
+sample_table_leafcutter <- read.table("data2/leafcutter_out/groups_file.txt", col.names=c("sample.id", "habitat")) %>%
+  mutate(sample.id=gsub("-",".", sample.id))
+
+leafcutter_splice_pca <- rda( t(ier_df[-c(1:4)]),scale=F, center=F)
+
+leafcutter_splice_pve_df <- data.frame(summary(eigenvals(leafcutter_splice_pca)))[2,1:12] %>%
+  pivot_longer(values_to = "PVE", names_to="PC", cols = 1:12) %>%
+  mutate(PVE=100*PVE)
+
+leafcutter_splice_pca.site_sc <- data.frame(scores(leafcutter_splice_pca, choices = 1:4, scaling = 1, display = "wa")) %>%
+  tibble::rownames_to_column("sample.id") %>%
+  full_join(sample_table_leafcutter)
+
+plot_leafcutter_splice_pca <-  ggplot(data=leafcutter_splice_pca.site_sc, aes(x = PC1, y = PC2, color=habitat, shape=habitat)) +
+  geom_point(size=10, alpha=.5) +
+  labs(x=paste0("PC1 ","(",round(leafcutter_splice_pve_df[1,2], 2),"%)"), y=paste0("PC2 ", "(",round(leafcutter_splice_pve_df[2,2],2),"%)"),
+       title="Splicing (intron excision)") +
+  theme_bw() +
+  theme(text = element_text(size=36),
+        #legend.position = "none",
+        legend.title = element_blank(),
+        legend.position = "bottom",
+        legend.margin=margin(0,0,0,0),
+        legend.box.margin=margin(0,0,0,0)) +
+  scale_color_manual(values=c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(17,19))
+
 
 #### join plots ####
 #FIG_1 <- plot_grid(plot_snp_pca, plot_expr_pca, labels=c("a)","b)"), ncol=1, nrow=2) #using cowplot package

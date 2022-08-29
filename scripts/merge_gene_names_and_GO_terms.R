@@ -37,7 +37,7 @@ revigo_DS_rMATS_DEU_union <- read.table("analysis/GO_analysis/Revigo_BP_table.DS
 
 
 plot_revigo_DE_dune <-  ggplot(data=revigo_DE_dune, aes(x = PC_1, y = PC_0, size=Value, color=Value)) +
-  scale_size_continuous(range = c(2,8)) +
+  scale_size_continuous(range = c(3,11)) +
   geom_point(alpha=.5) +
   geom_text_repel(label=ifelse(revigo_DE_dune$Value>10,as.character(revigo_DE_dune$Name),''), force = 5, force_pull = 0.5, direction = "both") +
   labs(x="MDS2 (semantic space x)", y="MDS1 (semantic space y)",
@@ -55,7 +55,7 @@ plot_revigo_DE_dune
 ggsave(filename = "figures/revigo_mds_DE_dune.png", device = "png", plot=plot_revigo_DE_dune, height=6, width=8, dpi = 600, units = "in", bg = "white")
 
 plot_revigo_DS <-  ggplot(data=revigo_DS_rMATS_DEU_union, aes(x = PC_1, y = PC_0, size=Value, color=Value)) +
-  scale_size_continuous(range = c(2,8)) +
+  scale_size_continuous(range = c(3,11)) +
   geom_point(alpha=.5) +
   geom_text_repel(label=ifelse(revigo_DS_rMATS_DEU_union$Value>5,as.character(revigo_DS_rMATS_DEU_union$Name),''), force = 5, force_pull = 0.5, direction = "both") +
   labs(x="MDS2 (semantic space x)", y="",

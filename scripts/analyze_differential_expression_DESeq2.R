@@ -64,6 +64,9 @@ rlog_counts <- rlog(DESeq2::counts(DE, normalized=FALSE)) #32311 genes with <24 
 # save to file for use in PCA
 write.csv(rlog_counts, file = "analysis/pca/rlog-transformed_expression_counts.csv", quote = F, row.names = F)
 
+temp <- data.frame(rlog_counts) %>% tibble::rownames_to_column("Ha412_gene")
+write.table(temp, file="analysis/DESeq2/rlog-transformed_expression_counts.tsv", quote = F, row.names = F, sep = "\t")
+
 #### DE results ####
 # Provide contrast argument to set dune habitat in the numerator. Set LFC threshold of 1, which means a particular having twice as much expression in one ecotype vs the other. ALso, set significance threshold to .05 
 #de_results <- data.frame(results(DE, contrast = c("habitat","dune","non-dune"), alpha = .05, cooksCutoff = T)) #%>% #no LFC threshold, no LFC shrinkage
