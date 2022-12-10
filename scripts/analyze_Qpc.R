@@ -2,22 +2,23 @@ remotes::install_github("emjosephs/quaint")
 library(quaint)
 
 #### Expression Qpc ####
-# get expression data. unsure if we should use normalized counts from DESeq2, or rlog-transformed counts from DESeq2...
+# get expression data. unsure if we should use normalized counts from DESeq2, or rlog-transformed counts from DESeq2...?
 
 load("analysis/DESeq2/DESeq2_results.Robj")
-normalized_counts <- as.data.frame(DESeq2::counts(DE, normalized=TRUE)) %>%
+normalized_counts <- as.data.frame(DESeq2::counts(DE, normalized=TRUE))
   
 df1 <- data.frame(t(normalized_counts))
-#df1 <- data.frame(t(scale(normalized_counts, scale = F))) #need to have individuals in rows and genes in columns. Should we mean center the expression values by using scale(scale=F)? I think the calcQpc function does this automatically.
+#df1 <- data.frame(t(scale(normalized_counts, scale = F))) #need to have individuals in rows and genes in columns. Should we mean center the expression values by using scale(scale=F, center=T)? I think no bc the calcQpc function does this automatically.
 
 gene_names <- names(df1)
 # read in SNP data. individuals are rows, loci are columns. instead of genotypes being coded 0-1-2 (i.e. allele counts), we have them coded as frequencies (0, 0.5, 1).
-G <- read.table("data/hc_out/dune_non-dune.nHet_filtered.UTR_only.hc.freqs", header = F) #SNPs from UTRs only
-G <- read.table("data/hc_out/dune_non-dune.nHet_filtered.no_inversions.hc.freqs", header = F) #SNPs from non-inversion regions only.
+#G <- read.table("data/hc_out/dune_non-dune.nHet_filtered.UTR_only.hc.freqs", header = F) #SNPs from UTRs only
+#G <- read.table("data/hc_out/dune_non-dune.nHet_filtered.no_inversions.hc.freqs", header = F) #SNPs from non-inversion regions only.
+G <- read.table("data/hc_out/plink/pruneddata.freqs", header = F) #LD-pruned snps
 G <- data.matrix(G)
 
 #G <- read.table("data/hc_out/dune_non-dune.nHet_filtered.hc.freqs", header = F) #all transcriptome SNPs
-random_G <- data.matrix(sample(G, 50000)) #randomly sample 50,000 transcriptome SNPs and convert to a matrix
+#random_G <- data.matrix(sample(G, 50000)) #randomly sample 50,000 transcriptome SNPs and convert to a matrix
 
 # get the kinship matrix
 k <- make_k(myG = G) #get the kinship matrix
@@ -25,7 +26,7 @@ k <- make_k(myG = G) #get the kinship matrix
 
 
 # get eigen values and vectors of kinship matrix
-E <- eigen(k) 
+E <- eigen(k)
 E_values <- E$values
 E_vectors <- E$vectors
 
@@ -50,12 +51,13 @@ pfdr <- data.frame(apply(pvals,2, function(x){p.adjust(x, method='fdr')})) #get 
 names(pfdr) <- c("PC1")
 #names(pfdr) <- c("PC1", "PC2", "PC3", "PC4", "PC5")
 
-numsig <- apply(pfdr, 2, function(x){sum(x<0.1)}) #genes with fdr <.1 across the PCs
+numsig <- apply(pfdr, 2, function(x){sum(x<0.05)}) #genes with fdr <.05 across the PCs
 
 sig_genes <- data.frame(Ha412_gene=unlist(allGeneOutput[1,]), pfdr_PC1=pfdr$PC1) %>%
-  filter(pfdr_PC1 < 0.1) %>%
+  filter(pfdr_PC1 < 0.05) %>%
   mutate(Ha412_gene=gsub("mRNA.","gene:",Ha412_gene)) %>%
-  left_join(Ha412_Ath_mappings)
+  left_join(Ha412_Ath_mappings) %>%
+  filter(!Ha412_gene %in% c("X__alignment_not_unique"))
   
 
 write.table(sig_genes, "analysis/Qpc/sig_genes_PC1.txt", sep = '\t', row.names = F, quote = F)
@@ -110,6 +112,7 @@ plot_qpc <- ggplot(data=qpc_expr_and_pops, aes(x=PC1, y=gene_expr, color=pop, sh
   geom_abline(slope = CI, linetype = 2, col = 'grey50', size=1) +
   geom_abline(slope = coeff, size = 1.25) +
   geom_abline(slope = -CI, linetype = 2, col = 'grey50', size=1)
+plot_qpc
 
 #### Splicing Qpc ####
 all_AS_events_PSI <- read.table("analysis/rMATS/results_2022-07-14/all_AS_events_PSI.txt", header = T)
@@ -124,14 +127,14 @@ allEventOutput <- sapply(1:ncol(df2), function(x){
   return(c(AS_event_names[x],myQpc))
 })
 
-AS_Qpc_pvals <- matrix(unlist(allEventOutput[5,]), ncol=1, byrow=T) #get pvalues. each row corresponds to a gene, columns are to PCs. We are only interested in testing for selection with the first PC.
+rMATS_Qpc_pvals <- matrix(unlist(allEventOutput[5,]), ncol=1, byrow=T) #get pvalues. each row corresponds to a gene, columns are to PCs. We are only interested in testing for selection with the first PC.
 #pvals <- matrix(unlist(allGeneOutput[5,]), ncol=5, byrow=T) # set ncol=5 if testing for selection on first 5 PCs. 
 
-AS_Qpc_pfdr <- data.frame(apply(AS_Qpc_pvals,2, function(x){p.adjust(x, method='fdr')})) #get adjusted pvalues
-names(AS_Qpc_pfdr) <- c("PC1")
+rMATS_Qpc_pfdr <- data.frame(apply(rMATS_Qpc_pvals,2, function(x){p.adjust(x, method='fdr')})) #get adjusted pvalues
+names(rMATS_Qpc_pfdr) <- c("PC1")
 #names(pfdr) <- c("PC1", "PC2", "PC3", "PC4", "PC5")
 
-AS_Qpc_numsig <- apply(AS_Qpc_pfdr, 2, function(x){sum(x<0.1)}) #genes with fdr <.1 across the PCs. Zero splice events under selection...
+rMATS_Qpc_numsig <- apply(rMATS_Qpc_pfdr, 2, function(x){sum(x<0.1)}) #genes with fdr <.1 across the PCs. Zero splice events under selection...
 
 # Using leafcutter intron excision ratios as the quantitative trait
 df3 <- ier_df[-c(1:4)]

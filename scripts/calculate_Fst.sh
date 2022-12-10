@@ -24,3 +24,14 @@ vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_sa
 echo 'calculating 10kb windowed Fst'
 vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 10000 --fst-window-step 10000 --stdout \
     > Fst_10Kb_windows.weir.txt
+
+echo 'calculating 100kb windowed Fst'
+vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 100000 --fst-window-step 100000 --stdout \
+	> Fst_100Kb_windows.weir.txt 
+
+echo 'calculating 1Mb windowed Fst'
+vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 1000000 --fst-window-step 1000000 --stdout \
+    > Fst_1Mb_windows.weir.txt
+echo 'calculating 2Mb windowed Fst'
+vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 2000000 --fst-window-step 2000000 --stdout \
+    > Fst_2Mb_windows.weir.txt

@@ -157,6 +157,6 @@ ggsave("figures/deu_manhattan.png",plot = deu_manhattan_plot, device = "png", wi
 chr11_inv_ds_genes <- read.table("analysis/DEXSeq/deu_genes_Chr11_inv.txt", col.names = "Ha412_gene") %>%
   inner_join(rmats_ds_genes)
 
-## plot DEU for Ha412HOChr09g0373721, the most ds gene in all three splicing analyses (DEXSeq, rMATS, and parents_diff_v2.py)
+# plot DEU for Ha412HOChr09g0373721, the most ds gene in all three splicing analyses (DEXSeq, rMATS, and parents_diff_v2.py)
 
 plotDEXSeq(object = dxr, geneID = "gene_Ha412HOChr11g0487911", splicing = T, expression = F, fitExpToVar="habitat",displayTranscripts = F, legend = T, color = c("gold2", "forestgreen"), names = F)
