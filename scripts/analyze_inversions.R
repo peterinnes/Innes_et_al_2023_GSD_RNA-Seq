@@ -4,24 +4,30 @@ library(dplyr)
 library(ggstatsplot)
 library(patchwork)
 
+#### Read in data ####
 # read in table of inversion positions/info (Table 1 from Huang et al 2020)
-inv_regions <- read.table("inversion_regions.txt", col.names = c("MDS", "chr", "start", "end", "num_of_outlier_wind", "PC1_varianace", "PC2_variance", "proportion_of_between_cluster_sum_of_squares", "region_code")) %>%
+inv_regions <- read.table("inversion_regions.txt",
+                          col.names = c("MDS", "chr", "start", "end",
+                                        "num_of_outlier_wind", "PC1_varianace",
+                                        "PC2_variance",
+                                        "proportion_of_between_cluster_sum_of_squares",
+                                        "region_code")) %>%
   dplyr::select(region_code, chr, start, end)
 
 
-# Read in the annotations and Filter for only expressed genes)
+# Read in the annotations and filter for only expressed genes)
 gff <- data.frame(rtracklayer::import("data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.gff3")) %>%
   rename(chrom="seqnames", Ha412_gene="ID")
 
-expressed_genes <- read.table("analysis/DESeq2/expressed_genes.txt", col.names = "Ha412_gene")
+expressed_genes <- read.table("analysis/DESeq2/expressed_genes.txt",
+                              col.names = "Ha412_gene")
 
 expressed_genes_gff <- subset(gff, type=="gene")[1:11] %>% inner_join(expressed_genes)
 
-write.table(expressed_genes_gff, file="data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.expressed_genes_gff.tmp", sep = "\t", row.names = F, col.names = F, quote = F)
+write.table(expressed_genes_gff,
+            file="data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.expressed_genes_gff.tmp",
+            sep = "\t", row.names = F, col.names = F, quote = F)
 
-
-# maybe first use bedtools map -o count_distinct to count the number of genes from gff file in each inversion?
-# https://www.biostars.org/p/65195/
 
 #### Enrichment of DE genes within inversions ####
 DE_genes <- read.table("analysis/GO_analysis/study_DE_genes_noLFCthreshold.txt",
@@ -74,24 +80,11 @@ plot_inv_enrich_DE <- ggplot(DE_inv_enrichment_df,
            x=Inversion_status)) + 
   geom_bar(position="fill", alpha=0.5) +
   scale_fill_discrete(breaks=c("DE", "non-DE"), type = c("grey50","#317EC2")) +
-  theme_classic() +
+  theme_classic(base_size = 12) +
   theme(legend.title = element_blank(),
-        legend.position = "top",
-        legend.text = element_text(size=18),
-        axis.text = element_text(size=18),
-        axis.title = element_text(size=24)) +
+        legend.position = "top") +
   labs(x="", y="Proportion")#, title = "Fisher's exact test, p < .001")
 
-ggbarstats(
-  DE_inv_enrichment_df, Expression_status, Inversion_status,
-  results.subtitle = FALSE, ggtheme = theme_minimal(),
-  package = "RColorBrewer",
-  palette = "Greys",
-  subtitle = paste0(
-    "Fisher's exact test", ", p-value ",
-    ifelse(DE_inv_fe_test$p.value < 0.001, "< 0.001", round(DE_inv_fe_test$p.value, 3))
-  )
-)
 
 #### Enrichment of DS genes within inversion ####
 # rMATS
@@ -139,55 +132,44 @@ plot_inv_enrich_DS <- ggplot(DS_inv_enrichment_df,
            x=Inversion_status)) + 
   geom_bar(position="fill", alpha=0.5) +
   scale_fill_discrete(breaks=c("DS", "non-DS"), type = c("grey50","red")) +
-  theme_classic() +
+  theme_classic(base_size = 12) +
   theme(legend.title = element_blank(),
-        legend.position = "top",
-        legend.text = element_text(size=18),
-        axis.text = element_text(size=18),
-        axis.title = element_text(size=24)) +
+        legend.position = "top") +
   labs(x="", y="")#, y="Proportion")#, title = "Fisher's exact test, p < .001")
-
-ggbarstats(
-  DS_inv_enrichment_df, Splicing_status, Inversion_status,
-  results.subtitle = FALSE, ggtheme = theme_minimal(),
-  package = "RColorBrewer",
-  palette = "Greys",
-  subtitle = paste0(
-    "Fisher's exact test", ", p-value ",
-    ifelse(DE_inv_fe_test$p.value < 0.001, "< 0.001", round(DE_inv_fe_test$p.value, 3))
-  )
-)
 
 plot_inv_enrich <- plot_inv_enrich_DE | plot_inv_enrich_DS
 
-ggsave("figures/plot_inversion_enrich_raw.png", plot=plot_inv_enrich,
-       device = "png",
-       height = 6, width = 9, dpi = 300, units = "in")
+ggsave("figures/plot_inversion_enrich_raw.pdf", plot=plot_inv_enrich,
+       device = "pdf", height = 87.5 , width = 131.25, dpi = 300, units = "mm")
 
 
-## DEXSeq (DEU)
-#deu_gene_regions.bed <- left_join(deu_genes_noLFCthreshold, expressed_genes_gff) %>%
-#  dplyr::select(chrom, start, end, Ha412_gene ) %>%
-#  mutate(start=start-1)
-#
-#write.table(deu_gene_regions.bed, file = "analysis/DEXSeq/deu_gene_regions.bed", sep = "\t", quote = F, row.names = F, #col.names = F)
+#### look at DS and DE genes within seed size qtl ####
+system("bedtools intersect -loj -a ~/gsd_RNA-seq/seed_size_qtl_pos.txt -b ~/gsd_RNA-seq/analysis/rMATS/results_2022-07-14/rmats_ds_gene_regions.bed > ~/gsd_RNA-seq/analysis/rMATS/results_2022-07-14/ds_genes_within_seed_size_qtl.txt")
 
-#bash commands
+ds_seed_size_qtl_genes <- read.table("analysis/rMATS/results_2022-07-14/ds_genes_within_seed_size_qtl.txt") %>%
+  rename(qtl_chrom=V1, qtl_start=V2, qtl_end=V3, chrom=V4, start=V5, end=V6) %>%
+  mutate(start=start+1) %>% #add one to convert from bed to gff
+  left_join(expressed_genes_gff) %>%
+  dplyr::select(Ha412_gene)
 
-# Count DEU  genes within inversions = 273
-# bedtools intersect -loj -a ~/gsd_RNA-seq/analysis/inversions/inversion_regions.bed -b analysis/DEXSeq/deu_gene_regions.bed | wc -l
+# DS_embryo_dev_genes from analyze_GO_enrichment.R
+filter(all_AS_events_deltaPSI, GeneID %in% DS_embryo_dev_genes) %>%
+  filter(GeneID %in% ds_seed_size_qtl_genes$Ha412_gene) %>%
+  filter(FDR <.05 )
 
-# count number of genes of any kind in the inversions = 3034 ; non-DEU genes within inversions = 3034 - 273 = 2761
-# bedtools map -a analysis/inversions/inversion_regions.bed -b data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.expressed_genes_gff.tmp -c 10 -o count_distinct | cut -f4 | paste -sd+ | bc
+slice_max(filter(all_AS_events_deltaPSI, GeneID %in% ds_seed_size_genes$Ha412_gene) %>%
+  filter(FDR <.05), IncLevelDifference, n=5)
 
-# count number of DEU genes outside inversions = 683
-# bedtools intersect -v -a analysis/DEXSeq/deu_gene_regions.bed -b analysis/inversions/inversion_regions.bed | wc -l
+slice_min(filter(all_AS_events_deltaPSI, GeneID %in% ds_seed_size_genes$Ha412_gene) %>%
+            filter(FDR <.05), IncLevelDifference, n=5)
 
-#  count number of genes of any kind outside inversions = 42056; non-DEU genes outside inversions = 29086 - 683 = 28403
-# bedtools intersect -v -a data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.expressed_genes_gff.tmp -b analysis/inversions/inversion_regions.bed | grep -v 'Chr00' | cut -f1 | sort | uniq -c | tr -s ' ' | cut -d ' ' -f 2 | paste -sd+ | bc
+system("bedtools intersect -loj -a ~/gsd_RNA-seq/seed_size_qtl_pos.txt -b ~/gsd_RNA-seq/analysis/DESeq2/DE_gene_regions.bed > ~/gsd_RNA-seq/analysis/DESeq2/DE_genes_within_seed_size_qtl.txt")
+de_seed_size_qtl_genes <- read.table("analysis/DESeq2/DE_genes_within_seed_size_qtl.txt") %>%
+  rename(qtl_chrom=V1, qtl_start=V2, qtl_end=V3, chrom=V4, start=V5, end=V6) %>%
+  mutate(start=start+1) %>% #add one to convert from bed to gff
+  left_join(expressed_genes_gff) %>%
+  dplyr::select(Ha412_gene)
 
-#deu_inv_enrichment_table <- data.frame("DEU" = c(273, 683), "non-DEU" = c(2761,28403),
-#                               row.names = c("inversion", "non-inversion"),
-#                               stringsAsFactors = F)
-
-#deu_inv_fe_test <- fisher.test(deu_inv_enrichment_table)
+# DE_embryo_seed_dev_genes from analyze_GO_enrichment.R
+filter(de_results_Shrink_df, Ha412HOv2_gene %in% DE_embryo_seed_dev_genes) %>%
+  filter(Ha412HOv2_gene %in% de_seed_size_qtl_genes$Ha412_gene)

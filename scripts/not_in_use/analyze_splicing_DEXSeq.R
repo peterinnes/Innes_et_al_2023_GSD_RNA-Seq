@@ -159,4 +159,4 @@ chr11_inv_ds_genes <- read.table("analysis/DEXSeq/deu_genes_Chr11_inv.txt", col.
 
 # plot DEU for Ha412HOChr09g0373721, the most ds gene in all three splicing analyses (DEXSeq, rMATS, and parents_diff_v2.py)
 
-plotDEXSeq(object = dxr, geneID = "gene_Ha412HOChr11g0487911", splicing = T, expression = F, fitExpToVar="habitat",displayTranscripts = F, legend = T, color = c("gold2", "forestgreen"), names = F)
+plotDEXSeq(object = dxr, geneID = "gene_Ha412HOChr02g0088581", splicing = T, expression = F, fitExpToVar="habitat",displayTranscripts = F, legend = T, color = c("gold2", "forestgreen"), names = F)

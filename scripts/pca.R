@@ -70,10 +70,13 @@ snp_pca_df <- left_join(snp_pca_df, habitat_pop_sample) %>%
   rename(habitat="ecotype")
 #head(snp_pca_df)
 
-
 # variance proportion (% variance explained)
 snp_pve_df <- data.frame(pc = 1:24, pve = snp_pca$varprop*100)
 
+# save the dataframes for plotting
+save(snp_pca_df, snp_pve_df, file = "data2/Rdata/snp_pca.Rdata")
+
+# plot percent variance explained
 plot_snp_pve <- ggplot(snp_pve_df, aes(x=pc, y=pve)) +
   geom_bar(stat = "identity") +
   xlab("PC") +
@@ -87,30 +90,22 @@ hull_snp_nd <- filter(snp_pca_df, ecotype=="non-dune") %>%
 
 # plot in ggplot
 plot_snp_pca <- ggplot(snp_pca_df,
-                                 aes(x=EV1, y=EV2, shape=ecotype, fill=ecotype)) +
+                       aes(x=EV1, y=EV2, shape=ecotype, fill=ecotype)) +
   # plot each plant and plot convex hulls for each ecotype
-  geom_point(size=5, alpha=.75) +
+  geom_point(size = 4, alpha=.75) +
   geom_polygon(data=hull_snp_d, alpha=.5) +
   geom_polygon(data=hull_snp_nd, alpha=.5) +
   
   labs(x=paste0("PC1 ","(",round(snp_pve_df[1,2], 2),"%)"),
-       y=paste0("PC2 ", "(",round(snp_pve_df[2,2],2),"%)")) + #, title="SNPs") +
-  theme_bw() +
-  theme(text = element_text(size=24),#,
-        #legend.title=element_blank(),
-        legend.position = "none",
-        #legend.position = c(.75,.75),
-        #legend.background = element_blank(),
-        #legend.box.background = element_rect(color = "black"),
+       y=paste0("PC2 ", "(",round(snp_pve_df[2,2],2),"%)")) +
+  
+  theme_bw(base_size  = 14) +
+  theme(legend.position = "none",
         panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=18)) +
+        panel.grid.major = element_blank()) +
+  
   geom_hline(yintercept = 0, lty = 2, col = "grey50") +
   geom_vline(xintercept = 0, lty = 2, col = "grey50") +
-        #legend.margin=margin(0,0,0,0),
-        #legend.box.margin=margin(0,0,0,0)) +
-  #scale_color_manual(values=c("gold2", "forestgreen")) +
   scale_fill_manual(values = c("gold2", "forestgreen")) +
   scale_shape_manual(values=c(24,21))
 plot_snp_pca
@@ -156,6 +151,9 @@ expr_pca.site_sc <- data.frame(scores(expr_pca,
   mutate(habitat=sample_table_deseq2$habitat)# %>%
   #mutate(population=populations)
 
+# save dfs for plotting
+save(expr_pve_df, expr_pca.site_sc, file = "data2/Rdata/expr_pca.Rdata")
+
 # get convex hulls for expression pca plot
 hull_expr_d <- filter(expr_pca.site_sc, habitat=="dune") %>%
   dplyr::slice(chull(PC1,PC2))
@@ -163,61 +161,32 @@ hull_expr_nd <- filter(expr_pca.site_sc, habitat=="non-dune") %>%
   dplyr::slice(chull(PC1,PC2))
 
 # plotting
-plot_expr_pca <-  ggplot(data=expr_pca.site_sc, aes(x = PC1, y = PC2,
-                                                    shape=habitat,
-                                                    fill=habitat)) +
-  geom_point(size=5, alpha=.75) +
+plot_expr_pca <-  ggplot(data=expr_pca.site_sc,
+                         aes(x = PC1, y = PC2, shape=habitat, fill=habitat)) +
+  geom_point(size = 4, alpha=.75) +
   geom_polygon(data=hull_expr_d, alpha=.5) +
   geom_polygon(data=hull_expr_nd, alpha=.5) +
   
   labs(x=paste0("PC1 ","(",round(expr_pve_df[1,2], 2),"%)"),
-       y=paste0("PC2 ", "(",round(expr_pve_df[2,2],2),"%)")) + #,
-       #title="Transcript levels") +
-  theme_bw() +
-  theme(text = element_text(size=24),
-        legend.position = "none",
+       y=paste0("PC2 ", "(",round(expr_pve_df[2,2],2),"%)")) +
+  
+  theme_bw(base_size  = 14) +
+  theme(legend.position = "none",
         legend.title = element_blank(),
         panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=18)) +
+        panel.grid.major = element_blank()) +#,
+  
   geom_hline(yintercept = 0, lty = 2, col = "grey50") +
   geom_vline(xintercept = 0, lty = 2, col = "grey50") +
-        #legend.position = "bottom",
-        #legend.margin=margin(0,0,0,0),
-        #legend.box.margin=margin(0,0,0,0)) +
-  #scale_color_manual(values=c("gold2", "forestgreen")) +
   scale_fill_manual(values=c("gold2", "forestgreen")) +
   scale_shape_manual(values=c(24,21))
 
 #### SPLICING pca ####
 # Using the "% Spliced In" i.e. PSI values from rMATS output. In this data set, each row is an AS event, each column is a plant, so need to transpose before PCA. Getting rid of rows with any missing values takes us down to 16065 splice events, from 18038
 sample_list <- read.table("sample_list.txt", header=T)
+load("data2/Rdata/rmats_results_dfs.Rdata") #from analyze_splicing_rMATS.R
 
-rmats_splice_pca_df <- all_AS_events_PSI[,4:27] %>%
-  lapply(as.numeric) %>% as.data.frame() #%>% na.omit()
-rownames(rmats_splice_pca_df) <- all_AS_events_PSI$ID
-
-# remove events with > 40% missingness
-rmats_splice_pca_df <- rmats_splice_pca_df %>%
-  mutate(missing_perc = rowMeans(is.na(rmats_splice_pca_df))) %>%
-  filter(missing_perc<.4) %>%
-  dplyr::select(!missing_perc)
-
-# set missing values to the average PSI of each event (each row)
-for( i in 1:nrow(rmats_splice_pca_df) ){
-  for( j in 1:ncol(rmats_splice_pca_df) ){
-    if( is.na(rmats_splice_pca_df[i,j]) ){
-      rmats_splice_pca_df[i,j] <- rowMeans(rmats_splice_pca_df[i,], na.rm = T)
-    }
-  }
-}
-
-rmats_splice_pca <- rda(t(rmats_splice_pca_df), scale = F, center=T)
-
-## compare to splice PSI values that have undergone standardization
-## and quantile normalization
-#rmats_splice_pca <- rda(t(rmats_splice_pheno_df), scale=F, center=F)
+rmats_splice_pca <- rda(t(rmats_splice_df_filtered), scale = F, center=T)
 
 rmats_splice_pve_df <- data.frame(summary(
   eigenvals(rmats_splice_pca)))[2,1:12] %>%
@@ -233,6 +202,9 @@ rmats_splice_pca.site_sc <- data.frame(scores(rmats_splice_pca, choices = 1:2,
   mutate(sample.id=gsub("_R1_001.trimmed.fq.gz","",sample.id),
          sample.id=gsub("\\.","-",sample.id))
 
+# save for plotting
+save(rmats_splice_pca.site_sc, rmats_splice_pve_df, file = "data2/Rdata/splice_pca.Rdata")
+
 # get convex hulls for splicing pca plot
 hull_rmats_d <- filter(rmats_splice_pca.site_sc, habitat=="dune") %>%
   dplyr::slice(chull(PC1,PC2))
@@ -243,108 +215,113 @@ hull_rmats_nd <- filter(rmats_splice_pca.site_sc, habitat=="non-dune") %>%
 plot_rmats_splice_pca <-  ggplot(data=rmats_splice_pca.site_sc,
                                  aes(x = PC1, y = PC2, shape=habitat,
                                      fill=habitat)) +
-  geom_point(size=5, alpha=.75) +
+  geom_point(size = 4, alpha=.75) +
   geom_polygon(data=hull_rmats_d, alpha=0.5) +
   geom_polygon(data=hull_rmats_nd, alpha=0.5) +
   
   labs(x=paste0("PC1 ","(",round(rmats_splice_pve_df[1,2], 2),"%)"),
-       y=paste0("PC2 ", "(",round(rmats_splice_pve_df[2,2],2),"%)")) +#,
-       #title="Alternative splicing") +
-  theme_bw() +
-  theme(text = element_text(size=24),
-        legend.position = "none",
+       y=paste0("PC2 ", "(",round(rmats_splice_pve_df[2,2],2),"%)")) +
+  theme_bw(base_size  = 14) +
+  theme(legend.position = "none",
         legend.title = element_blank(),
         panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=18)) +
+        panel.grid.major = element_blank()) + 
+  
   geom_hline(yintercept = 0, lty = 2, col = "grey50") +
   geom_vline(xintercept = 0, lty = 2, col = "grey50") +
   scale_color_manual(values=c("gold2", "forestgreen")) +
   scale_fill_manual(values=c("gold2", "forestgreen")) +
   scale_shape_manual(values=c(24,21))
 
-# DEXSeq splicing (DEU) pca
-sample_table_dexseq <- read.table("sample_list.txt", header=T)
-rlog_exon_counts <- read.csv("analysis/pca/dexseq_exon_counts.csv")
-dexseq_splice_pca <-rda(t(rlog_exon_counts), scale=F, center=T) 
+## DEXSeq splicing (DEU) pca
+#sample_table_dexseq <- read.table("sample_list.txt", header=T)
+#rlog_exon_counts <- read.csv("analysis/pca/dexseq_exon_counts.csv")
+#dexseq_splice_pca <-rda(t(rlog_exon_counts), scale=F, center=T) 
+#
+#dexseq_splice_pve_df <- data.frame(summary(
+#  eigenvals(dexseq_splice_pca)))[2,1:12] %>%
+#  pivot_longer(values_to = "PVE",
+#               names_to="PC",
+#               cols = 1:12) %>%
+#  mutate(PVE=100*PVE)
+#
+#dexseq_splice_pca.site_sc <- data.frame(scores(dexseq_splice_pca,
+#                                               choices = 1:4,
+#                                               scaling = 1,
+#                                               display = "wa")) %>%
+#  tibble::rownames_to_column("sample.id") %>%
+#  mutate(habitat=sample_table_dexseq$habitat)
+#
+#plot_dexseq_splice_pca <-  ggplot(data=dexseq_splice_pca.site_sc,
+#                                  aes(x = PC1, y = PC2,
+#                                      color=habitat, shape=habitat)) +
+#  geom_point(size=5, alpha=.5) +
+#  labs(x=paste0("PC1 ","(",round(dexseq_splice_pve_df[1,2], 2),"%)"),
+#       y=paste0("PC2 ", "(",round(dexseq_splice_pve_df[2,2],2),"%)"),
+#       title="Splicing (exon-based)") +
+#  theme_bw() +
+#  theme(text = element_text(size=18),
+#        #legend.position = "none",
+#        legend.title = element_blank(),
+#        legend.position = "bottom",
+#        legend.margin=margin(0,0,0,0),
+#        legend.box.margin=margin(0,0,0,0),
+#        panel.grid.minor = element_blank(),
+#        panel.grid.major = element_blank(),
+#        plot.title = element_text(size=18),
+#        axis.text = element_text(size=12)) +
+#  geom_hline(yintercept = 0, lty = 2, col = "grey50") +
+#  geom_vline(xintercept = 0, lty = 2, col = "grey50") +
+#  scale_color_manual(values=c("gold2", "forestgreen")) +
+#  scale_shape_manual(values=c(24,21))
 
-dexseq_splice_pve_df <- data.frame(summary(
-  eigenvals(dexseq_splice_pca)))[2,1:12] %>%
-  pivot_longer(values_to = "PVE",
-               names_to="PC",
-               cols = 1:12) %>%
-  mutate(PVE=100*PVE)
-
-dexseq_splice_pca.site_sc <- data.frame(scores(dexseq_splice_pca,
-                                               choices = 1:4,
-                                               scaling = 1,
-                                               display = "wa")) %>%
-  tibble::rownames_to_column("sample.id") %>%
-  mutate(habitat=sample_table_dexseq$habitat)
-
-plot_dexseq_splice_pca <-  ggplot(data=dexseq_splice_pca.site_sc,
-                                  aes(x = PC1, y = PC2,
-                                      color=habitat, shape=habitat)) +
-  geom_point(size=5, alpha=.5) +
-  labs(x=paste0("PC1 ","(",round(dexseq_splice_pve_df[1,2], 2),"%)"),
-       y=paste0("PC2 ", "(",round(dexseq_splice_pve_df[2,2],2),"%)"),
-       title="Splicing (exon-based)") +
-  theme_bw() +
-  theme(text = element_text(size=18),
-        #legend.position = "none",
-        legend.title = element_blank(),
-        legend.position = "bottom",
-        legend.margin=margin(0,0,0,0),
-        legend.box.margin=margin(0,0,0,0),
-        panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=12)) +
-  geom_hline(yintercept = 0, lty = 2, col = "grey50") +
-  geom_vline(xintercept = 0, lty = 2, col = "grey50") +
-  scale_color_manual(values=c("gold2", "forestgreen")) +
-  scale_shape_manual(values=c(24,21))
-
-# leafcutter PCA (intron excision ratios)
-sample_table_leafcutter <- read.table("data2/leafcutter_out/groups_file.txt", col.names=c("sample.id", "habitat")) %>%
-  mutate(sample.id=gsub("-",".", sample.id))
-
-leafcutter_splice_pca <- rda( t(ier_df[-c(1:4)]),scale=F, center=F)
-
-leafcutter_splice_pve_df <- data.frame(summary(eigenvals(leafcutter_splice_pca)))[2,1:12] %>%
-  pivot_longer(values_to = "PVE", names_to="PC", cols = 1:12) %>%
-  mutate(PVE=100*PVE)
-
-leafcutter_splice_pca.site_sc <- data.frame(scores(leafcutter_splice_pca, choices = 1:4, scaling = 1, display = "wa")) %>%
-  tibble::rownames_to_column("sample.id") %>%
-  full_join(sample_table_leafcutter)
-
-plot_leafcutter_splice_pca <-  ggplot(data=leafcutter_splice_pca.site_sc, aes(x = PC1, y = PC2, color=habitat, shape=habitat)) +
-  geom_point(size=5, alpha=.5) +
-  labs(x=paste0("PC1 ","(",round(leafcutter_splice_pve_df[1,2], 2),"%)"), y=paste0("PC2 ", "(",round(leafcutter_splice_pve_df[2,2],2),"%)"),
-       title="Splicing (intron excision)") +
-  theme_bw() +
-  theme(text = element_text(size=18),
-        #legend.position = "none",
-        legend.title = element_blank(),
-        legend.position = "bottom",
-        legend.margin=margin(0,0,0,0),
-        legend.box.margin=margin(0,0,0,0),
-        panel.grid.minor = element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=12)) +
-  geom_hline(yintercept = 0, lty = 2, col = "grey50") +
-  geom_vline(xintercept = 0, lty = 2, col = "grey50") +
-  scale_color_manual(values=c("gold2", "forestgreen")) +
-  scale_shape_manual(values=c(24,21))
+#s# leafcutter PCA (intron excision ratios)
+#ssample_table_leafcutter <- read.table("data2/leafcutter_out/groups_file.txt",
+#s                                      col.names=c("sample.id", "habitat")) %>%
+#s  mutate(sample.id=gsub("-",".", sample.id))
+#s
+#sleafcutter_splice_pca <- rda( t(ier_df[-c(1:4)]),scale=F, center=F)
+#s
+#sleafcutter_splice_pve_df <- data.frame(summary(eigenvals(leafcutter_splice_pca)))[2,1:12] %>%
+#s  pivot_longer(values_to = "PVE", names_to="PC", cols = 1:12) %>%
+#s  mutate(PVE=100*PVE)
+#s
+#sleafcutter_splice_pca.site_sc <- data.frame(scores(leafcutter_splice_pca,
+#s                                                   choices = 1:4, scaling = 1,
+#s                                                   display = "wa")) %>%
+#s  tibble::rownames_to_column("sample.id") %>%
+#s  full_join(sample_table_leafcutter)
+#s
+#splot_leafcutter_splice_pca <-  ggplot(data=leafcutter_splice_pca.site_sc,
+#s                                      aes(x = PC1, y = PC2, color=habitat,
+#s                                          shape=habitat)) +
+#s  geom_point(size=5, alpha=.5) +
+#s  labs(x=paste0("PC1 ","(",round(leafcutter_splice_pve_df[1,2], 2),"%)"),
+#s       y=paste0("PC2 ", "(",round(leafcutter_splice_pve_df[2,2],2),"%)"),
+#s       title="Splicing (intron excision)") +
+#s  theme_bw() +
+#s  theme(text = element_text(size=18),
+#s        #legend.position = "none",
+#s        legend.title = element_blank(),
+#s        legend.position = "bottom",
+#s        legend.margin=margin(0,0,0,0),
+#s        legend.box.margin=margin(0,0,0,0),
+#s        panel.grid.minor = element_blank(),
+#s        panel.grid.major = element_blank(),
+#s        plot.title = element_text(size=18),
+#s        axis.text = element_text(size=12)) +
+#s  geom_hline(yintercept = 0, lty = 2, col = "grey50") +
+#s  geom_vline(xintercept = 0, lty = 2, col = "grey50") +
+#s  scale_color_manual(values=c("gold2", "forestgreen")) +
+#s  scale_shape_manual(values=c(24,21))
 
 
 #### join plots ####
-#FIG_1 <- plot_grid(plot_snp_pca, plot_expr_pca, labels=c("a)","b)"), ncol=1, nrow=2) #using cowplot package
+#FIG_1 <- plot_grid(plot_snp_pca, plot_expr_pca, labels=c("a)","b)"),
+#ncol=1, nrow=2) #using cowplot package
 FIG_1 <- (plot_spacer() | plot_snp_pca) / (plot_expr_pca | plot_rmats_splice_pca)
-#FIG_1 <- patchwork + plot_annotation(tag_levels = "b") #gsd_sampling_map is from sampling_map.R script
+
+#FIG_1 <- patchwork + plot_annotation(tag_levels = "b")
 
 #poster_patchwork <- (plot_snp_pca / plot_expr_pca) | (plot_dexseq_splice_pca / plot_rmats_splice_pca)
 #poster_FIG_1 <- poster_patchwork + plot_annotation(tag_levels = "A")
@@ -355,9 +332,14 @@ ggsave("figures/FIG_1_raw.png", plot=FIG_1,device = "png",
 
 #ggsave("figures/poster_FIG_1", plot=poster_patchwork, device = "png", dpi=300, width=8, height=6, units="in")
 
-ggsave("figures/SNP_PCA.png", plot=plot_snp_pca, device = "png", dpi=300, width=8, height=6, units="in")
-ggsave("figures/expr_PCA.png", plot=plot_expr_pca, device = "png", dpi=300, width=8, height=6, units="in")
-ggsave("figures/DEU_PCA.png", plot=plot_dexseq_splice_pca, device = "png", dpi=300, width=8, height=6, units="in")
-ggsave("figures/rMATS_PCA.png", plot=plot_rmats_splice_pca, device = "png", dpi=300, width=8, height=6, units="in")
+ggsave("figures/SNP_PCA.png", plot=plot_snp_pca, device = "png", dpi=300,
+       width=8, height=6, units="in")
+ggsave("figures/expr_PCA.png", plot=plot_expr_pca, device = "png", dpi=300,
+       width=8, height=6, units="in")
+#ggsave("figures/DEU_PCA.png", plot=plot_dexseq_splice_pca, device = "png",
+#       dpi=300, width=8, height=6, units="in")
+ggsave("figures/rMATS_PCA.png", plot=plot_rmats_splice_pca, device = "png",
+       dpi=300, width=8, height=6, units="in")
+
 #### k-means clustering?? ####
 ?kmeans

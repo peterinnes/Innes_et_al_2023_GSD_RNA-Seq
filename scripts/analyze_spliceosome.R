@@ -5,7 +5,10 @@ spliceosome_model_df <- data.frame(sample.id=splice_pca.site_sc$sample.id,
   inner_join(dplyr::select(snp_pca_df, sample.id, snp_PC1=EV1))
   
 
-Ha412_spliceosome <- read.table("analysis/BLAST_out/uniq_top_hits_spliceosome_components_vs_HAN412.txt", col.names = "id")
+Ha412_spliceosome <- read.table("analysis/BLAST_out/uniq_top_hits_spliceosome_components_vs_HAN412.txt",
+                                col.names = "Ha412HOv2_gene") %>%
+  mutate(Ha412HOv2_gene=gsub("mRNA","gene",Ha412HOv2_gene))
+
 Ha412_spliceosome <- rbind(Ha412_spliceosome, c("mRNA:Ha412HOChr09g0395201")) #adding in the splicing factor SF3a60 homolog that is a top DE gene
 
 spliceosome_expression <- subset(normalized_counts, rownames(normalized_counts) %in% Ha412_spliceosome$id)
@@ -34,7 +37,8 @@ summary(cool_model)
 #### which spliceosomal genes are differentially expressed and/or differentially spliced? ####
 
 # DE
-Ha412_spliceosome$id %in% de_results_lfc1_s005_Shrink$id #none of them
+DE_spliceosome <- de_results_Shrink_df %>%
+  filter(padj<.05, Ha412HOv2_gene %in% Ha412_spliceosome$Ha412HOv2_gene)
 
 # DS (DEXSeq)
 Ha412_spliceosome$id %in% deu_genes$groupID # none of them?

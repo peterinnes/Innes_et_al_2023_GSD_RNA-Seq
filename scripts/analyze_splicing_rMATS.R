@@ -14,22 +14,19 @@ rmatsout_summary <- pivot_longer(rmatsout_summary,2:9, names_to = "Category", va
 rmatsout_summary$EventType <- factor(rmatsout_summary$EventType,
                                      levels=c("RI", "A3SS", "A5SS", "MXE", "SE"))
 
-# plot non-significant events and significant events together
+# plot non-significant events and significant events together. for sup mat
 plot_rmats_event_counts <- ggplot(data = rmatsout_summary %>% subset(Category=="TotalEventsJCEC"),
        aes(x=EventType, y=Count)) +
   geom_col(position = 'identity', color="grey50", alpha=0.5) +
   geom_col(data=rmatsout_summary %>% subset(Category=="SignificantEventsJCEC"),
            aes(x=EventType, y=Count),fill="black", position = 'identity') +
-  theme_bw() +
-  theme(text = element_text(size=24),
-        axis.text = element_text(size=18),
-        panel.grid.minor = element_blank(),
+  theme_bw(base_size = 12) +
+  theme(panel.grid.minor = element_blank(),
         panel.grid.major = element_blank()) +
   labs(x="Event Type")
 
-ggsave("figures/plot_rMATS_event_counts_raw.png", plot=plot_rmats_event_counts,
-       device = "png",
-       height = 6, width = 6, dpi = 300, units = "in")
+ggsave("figures/plot_rMATS_event_counts_raw.pdf", plot=plot_rmats_event_counts,
+       device = "pdf", height = 87.5, width = 87.5, dpi = 300, units = "mm")
 
 # significant events bar plot
 ggplot(data = rmatsout_summary %>% subset(Category=="SignificantEventsJCEC"),
@@ -60,13 +57,17 @@ RI_events |>
   #subset(abs(IncLevelDifference) > .05) |>
   dim() 
 
-# combine all the results files into one file, for use in PCA of the Inclusion Levels, in the script pca.R
+# combine all the results files into one file,
+# for use in PCA of the Inclusion Levels, in the script pca.R
 all_AS_events <- full_join(SE_events, RI_events) %>%
   full_join(MXE_events) %>%
   full_join(A5SS_events) %>% 
   full_join(A3SS_events) %>%
-  arrange(FDR)
+  arrange(FDR) %>%
+  left_join(Ha412_Ath_mappings %>% rename(GeneID=Ha412_gene)) %>%
+  relocate(ID,GeneID, Ath_gene)
 
+# split apart valules for individual plants in the IncLevel (PSI) columns 
 all_AS_events_PSI <- all_AS_events %>%
   dplyr::select(ID, GeneID, chr, IncLevel1, IncLevel2) %>%
   separate(IncLevel1, into = c("Kane-602-10_S8_R1_001.trimmed.fq.gz",
@@ -94,6 +95,25 @@ all_AS_events_PSI <- all_AS_events %>%
                                "Kane-602-28_S23_R1_001.trimmed.fq.gz",
                                "Kane-602-30_S24_R1_001.trimmed.fq.gz"), sep = ",")
 
+# filter results for missingness (remove events with > 40% missingness)
+tmp <- all_AS_events_PSI[,4:27] %>%
+  lapply(as.numeric) %>% as.data.frame() #%>% na.omit()
+rownames(tmp) <- all_AS_events_PSI$ID
+
+rmats_splice_df_filtered <- tmp %>%
+  mutate(missing_perc = rowMeans(is.na(tmp))) %>%
+  filter(missing_perc<.4) %>%
+  dplyr::select(!missing_perc)
+
+# set remaining missing values to the average PSI of each event (each row)
+for( i in 1:nrow(rmats_splice_df_filtered) ){
+  for( j in 1:ncol(rmats_splice_df_filtered) ){
+    if( is.na(rmats_splice_df_filtered[i,j]) ){
+      rmats_splice_df_filtered[i,j] <- rowMeans(rmats_splice_df_filtered[i,], na.rm = T)
+    }
+  }
+}
+
 #get_log2FC <- function(A,B){
 #  log2FC <- log2(A) - log2(B)
 #  return(log2FC)
@@ -102,97 +122,30 @@ all_AS_events_PSI <- all_AS_events %>%
 #all_AS_events_PSI$log2FC <- get_log2FC(rowMeans(all_AS_events_PSI[4:15], na.rm = T),
 #                                       rowMeans(all_AS_events_PSI[16:27], na.rm = T))
 
-## calculate deltaPSI for dune - non-dune
-#all_AS_events_PSI$deltaPSI <- rowMeans(all_AS_events_PSI[4:15],
-#na.rm = T) - rowMeans(all_AS_events_PSI[16:27], na.rm = T)
-
-write.table(all_AS_events_PSI, "analysis/rMATS/results_2022-07-14/all_AS_events_PSI.txt", row.names = F, quote = F, sep = '\t')
-
-sig_AS_events <- subset(all_AS_events, FDR<.05) %>%
-  rename("Ha412_gene"=GeneID)
-
-#### make "phenotype" table for sQTL and (?) PCA?? a la leafcutter sQTL method ####
-#rmats_splice_pheno_df <- all_AS_events_PSI[,4:27] %>%
-#  lapply(as.numeric) %>% as.data.frame()
-#rownames(rmats_splice_pheno_df) <- all_AS_events_PSI$ID
-#
-## throw out splice event if > 40% missingness
-#tmp <- rmats_splice_pheno_df %>%
-#  mutate(missing_perc = rowMeans(is.na(rmats_splice_pheno_df))) %>%
-#  filter(missing_perc<.4) %>%
-#  dplyr::select(!missing_perc)
-#         
-## set missing values to the average PSI of each event (each row)
-#for( i in 1:nrow(tmp) ){
-#  for( j in 1:ncol(tmp) ){
-#    if( is.na(tmp[i,j]) ){
-#      tmp[i,j] <- rowMeans(tmp[i,], na.rm = T)
-#    }
-#  }
-#}
-#
-## if there is too little variation, remove
-#tmp <- transform(tmp, sd=apply(tmp,1, sd, na.rm = TRUE)) %>%
-#  filter(sd>=.005) %>%
-#  dplyr::select(!sd)
-#
-## standardize across individuals
-## have to transpose the df because scale() operates within columns
-#tmp_scaled <- scale(t(tmp))
-## transpose back again to quantile normalize across splice events
-#rmats_splice_pheno_df <- data.frame(normalize.quantiles(t(tmp_scaled)))
-#rownames(rmats_splice_pheno_df) <- rownames(tmp)
-#colnames(rmats_splice_pheno_df) <- colnames(tmp) %>%
-#  #gsub("_R1_001.trimmed.fq.gz","",.) %>%
-#  gsub("Kane\\.602\\.","Kane-602-",.)
-## reorder columns to be consistent with order in vcf file
-#rmats_splice_pheno_df <- rmats_splice_pheno_df %>% 
-#  dplyr::select(as.factor(sample_table_deseq2$fastq))
-
-
-## filter out low-expressed-genes / genes with low support?
-#low_expressed_genes$groupID
-#all_AS_events <- all_AS_events %>%
-#  mutate(groupID = gsub("gene:", "", GeneID))
-#rmats_keep <- !(all_AS_events$groupID %in% low_expressed_genes$groupID) # check if any AS genes are in low-expressed list, #then flip the boolean to make a list of genes to keep. This only filters 110 genes, so the built-in rMATS filter must have #gotten most of them? This step probably isn't worth it. 
-#temp <- all_AS_events[keep,]
-
-## trying a different filter: at least 5 reads for an event in at least 3 different individuals, across inclusion/skip form regardless of habitat. The default rMATS filter keeps all events with at least one read supporting the exon inclusion form and the exon skipping form in either dune or non-dune samples. Put another way, The filter removes events where at least one of the sample groups does not have any reads to support the event (no inclusion reads and no skipping reads). The filter also removes events where neither sample group has a read for one of the isoforms (neither sample group has inclusion or neither sample group has skipping).
-
-## first, split the columns with per event reads counts of each category (habitat*inclusion)
-#temp <- all_AS_events %>%
-#  `rownames<-`(all_AS_events$ID) %>%
-#  dplyr::select(IJC_SAMPLE_1, IJC_SAMPLE_2, SJC_SAMPLE_1, SJC_SAMPLE_2) %>%
-#  separate(IJC_SAMPLE_1, sep = ',', into = paste0("IJC1_",dune_fq)) %>% 
-#  separate(IJC_SAMPLE_2, sep = ',', into = paste0("IJC2_",non.dune_fq)) %>% 
-#  separate(SJC_SAMPLE_1, sep = ',', into = paste0("SJC1_",dune_fq)) %>% 
-#  separate(SJC_SAMPLE_2, sep = ',', into = paste0("SJC2_",non.dune_fq)) %>%
-#  mutate(across(everything(), as.numeric))
-#
-##temp_keep_IJC1 <- rowSums(temp[1:12] >= 5) >= 3
-##temp_keep_IJC2 <- rowSums(temp[13:24] >= 5) >= 3
-##temp_keep_SJC1 <- rowSums(temp[25:36] >= 5) >= 3
-##temp_keep_SJC2 <- rowSums(temp[37:48] >= 5) >= 3
-
-#temp_keep_IJC <- rowSums(temp[1:24] >= 5) >= 3 # for each splice event, require at least 3 individuals, irregardless of habitat, to have at least 5 reads mapping to the Inclusion form.  
-#temp_keep_SJC <- rowSums(temp[25:48] >= 5) >= 3
-
-## intersect the vectors for TRUE
-##rmats_keep <- temp_keep_IJC1 & temp_keep_IJC2 & temp_keep_SJC1 & temp_keep_SJC2
-#rmats_keep <- temp_keep_IJC & temp_keep_SJC
-#sum(!rmats_keep) #this filters out 86276 events, leaving 9657
-#all_AS_events_filtered <- (all_AS_events[rmats_keep,])
-
-#### Splicing manhattan plot ####
 all_AS_events_deltaPSI <- all_AS_events %>%
-  mutate(exon_start = coalesce(exonStart_0base, X1stExonStart_0base,
-                               longExonStart_0base, riExonStart_0base),
-         exon_end = coalesce(exonEnd, X1stExonEnd,
-                             longExonEnd, riExonEnd)) %>%
-  dplyr::select(ID, GeneID, "chrom"=chr, exon_start, exon_end, IncLevelDifference, FDR) %>%
+  mutate(event_start = coalesce(exonStart_0base, X1stExonStart_0base,
+                               longExonStart_0base, upstreamEE),
+         event_end = coalesce(exonEnd, X2ndExonEnd,
+                             longExonEnd, downstreamES)) %>%
+  dplyr::select(ID, GeneID,Ath_gene, "chrom"=chr, event_start, event_end, IncLevelDifference, FDR) %>%
   mutate(chrom=gsub("chr", "", chrom)) %>%
-  filter(ID %in% rownames(rmats_splice_pca_df)) #filter out events with > 40% missingness
+  filter(ID %in% rownames(rmats_splice_df_filtered)) #filter out events with > 40% missingness
 
+# save as Rdata for use in PCA and plotting
+save(rmats_splice_df_filtered, all_AS_events_PSI, all_AS_events_deltaPSI, 
+     file = "data2/Rdata/rmats_results_dfs.Rdata")
+
+# save to file while filtering for < 40% missingness
+write.table(all_AS_events %>% filter(ID %in% rownames(rmats_splice_df_filtered)),
+            "analysis/rMATS/results_2022-07-14/all_AS_events.txt", sep = '\t',
+            quote = F, row.names = F)
+write.table(all_AS_events_PSI %>% filter(ID %in% rownames(rmats_splice_df_filtered)),
+            "analysis/rMATS/results_2022-07-14/all_AS_events_PSI.txt",
+            row.names = F, quote = F, sep = '\t')
+# save to file
+write.table(all_AS_events_deltaPSI,
+            "analysis/rMATS/results_2022-07-14/all_AS_events_deltaPSI.tsv",
+            sep = '\t', quote = F, row.names = F)
 
 #for( i in 1:nrow(all_AS_events_deltaPSI)){
 #  if( all_AS_events_deltaPSI$FDR[i] == 0 ){
@@ -200,6 +153,7 @@ all_AS_events_deltaPSI <- all_AS_events %>%
 #  }
 #}
 
+#### splicing manhattan plot ####
 # get the cumulative length of each chromosome
 chrom_lengths <- read.table("data/ref_genome_Ha412HO/chrom_sizes_Ha412HOv2.0.txt",
                             col.names = c("chrom", "length")) %>%
@@ -211,19 +165,20 @@ cum_lengths <- chrom_lengths %>%
 
 # get inversion regions
 inversion_regions <- read.table("analysis/inversions/inversion_regions.txt") %>%
-  dplyr::select(V2,V3,V4,V9) %>%
-  rename("chrom"=V2, "start"=V3, "end"=V4, "name"=V9) %>%
+  dplyr::select(V2,V3,V4,V9)
+names(inversion_regions) <- c("chrom", "start", "end", "name")
+inversion_regions <- inversion_regions %>%
   filter(name %in% c("pet05.01", "pet09.01", "pet11.01", "pet17.01")) %>%
   left_join(cum_lengths[c(1,3)]) %>%
   mutate(inv_cumstart=start+cumstart, inv_cumend=end+cumstart)
 
 splice_manhattan_df <- inner_join(all_AS_events_deltaPSI, cum_lengths) %>%
   #rowwise() %>%
-  mutate(exon_startcum = exon_start + cumstart, sig=if_else(FDR<.05, "yes", "no"))
+  mutate(event_startcum = event_start + cumstart, sig=if_else(FDR<.05, "yes", "no"))
 
 axisdf_splice <- splice_manhattan_df %>%
   group_by(chrom) %>%
-  summarize(center=(max(exon_startcum) + min(exon_startcum)) / 2) %>%
+  summarize(center=(max(event_startcum) + min(event_startcum)) / 2) %>%
   mutate(chrom=c("1","2","3","4","5",
                  "6","7","8","9","10",
                  "11","12","13","14","15",
@@ -232,6 +187,10 @@ axisdf_splice <- splice_manhattan_df %>%
 # split apart significant DE genes and nonsignifcant DE genes so we can downsample the nonsig data, for better vis
 sig_splice_data <- splice_manhattan_df %>% 
   subset(FDR < 0.05)
+#sig_splice_data <- splice_manhattan_df %>% 
+#  subset(FDR < 0.05) %>%
+#  group_by(GeneID) %>%
+#  slice_max(abs(IncLevelDifference))
 notsig_splice_data <- splice_manhattan_df %>% 
   subset(FDR >= 0.05) %>%
   group_by(chrom) %>% 
@@ -240,7 +199,7 @@ notsig_splice_data <- splice_manhattan_df %>%
 splice_manhattan_df_reduced <- bind_rows(sig_splice_data, notsig_splice_data) 
 
 splice_manhattan_plot <- ggplot(splice_manhattan_df_reduced,
-                                aes(x=exon_startcum, y=IncLevelDifference),
+                                aes(x=event_startcum, y=IncLevelDifference),
                                 alpha=IncLevelDifference) +
                                     #color=-log10(FDR))) +
   # alternate shading of chromosomes
@@ -263,7 +222,7 @@ splice_manhattan_plot <- ggplot(splice_manhattan_df_reduced,
   # add each splice event
   geom_point(aes(size=as.factor(sig=="no")), shape=1) +
   #scale_alpha_manual(name="FDR < .05",values = c(.1,.5), labels=c("no", "yes")) +
-  scale_size_manual(name="Significance (FDR < .05)", values = c(4,1), labels=c("yes", "no")) +
+  scale_size_manual(name="Significance (FDR < .05)", values = c(2,.5), labels=c("yes", "no")) +
   #geom_point(alpha=0.75, aes(size=-log(FDR))) +
   #scale_color_gradientn(colors=c("grey","turquoise","blue","navyblue","black")) +
   
@@ -273,10 +232,10 @@ splice_manhattan_plot <- ggplot(splice_manhattan_df_reduced,
   scale_y_continuous(expand=c(0.01,0.01)) +
   
   # custom theme
-  theme_bw() +
+  theme_bw(base_size = 18) +
   theme(legend.position = "top",
         #axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
-        text = element_text(size=24),
+        #text = element_text(size=24),
         axis.line.x = element_blank(),
         axis.ticks = element_blank(),
         #axis.text.x=element_blank(),
@@ -284,117 +243,193 @@ splice_manhattan_plot <- ggplot(splice_manhattan_df_reduced,
         panel.border = element_blank(),
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank(),
-        legend.text = element_text(size=18),
-        legend.title = element_text(size=18),
-        axis.text = element_text(size=18),
+        legend.text = element_text(size=14),
+        legend.title = element_text(size=14),
+        #axis.text = element_text(size=18),
         legend.box.margin = margin(t = -30)) +
   
   labs(x="Chromosome",y=~paste(Delta,"PSI"))
 splice_manhattan_plot
 
+# without the scatterplots (panels D and E)
+FIG_2 <- Fst_manhattan_plot / expr_manhattan_plot / splice_manhattan_plot
 
-## alt version with log2FC instead of deltaPSI
-#
-#splice_manhattan_plot_alt <- ggplot(splice_manhattan_df_reduced,
-#                                aes(x=exon_startcum, y=log2FC,
-#                                    color=-log10(FDR))) +
-#  # alternate shading of chromosomes
-#  geom_rect(data=cum_lengths,
-#            aes(xmin=cumstart, xmax=cumend,
-#                ymin=min(splice_manhattan_df$log2FC, na.rm = T),
-#                ymax=max(splice_manhattan_df$log2FC, na.rm = T),
-#                fill=as.factor(chrom)),
-#            inherit.aes = F,
-#            alpha=0.5) +
-#  scale_fill_manual(values = rep(c("light grey", "white"), 17)) +
-#  
-#  # mark inversion regions
-#  geom_rect(data=inversion_regions,
-#            aes(xmin=inv_cumstart, xmax=inv_cumend,
-#                ymin=min(splice_manhattan_df$log2FC, na.rm = T),
-#                ymax=max(splice_manhattan_df$log2FC, na.rm = T)),
-#            fill="red", alpha=0.25, inherit.aes = F) +
-#  
-#  # add each splice event
-#  geom_point(alpha=0.75, aes(size=-log(FDR))) +
-#  scale_color_gradientn(colors=c("grey","turquoise","blue","navyblue","black")) +
-#  
-#  # custom axes
-#  scale_x_continuous(label = axisdf_splice$chrom,
-#                     breaks = axisdf_splice$center, expand=c(.01,.01)) +
-#  scale_y_continuous(expand = c(.05,.05)) +
-#  
-#  # custom theme
-#  theme_bw() +
-#  theme(legend.position = "none",
-#        #axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
-#        text = element_text(size=24),
-#        axis.line.x = element_blank(),
-#        axis.ticks = element_blank(),
-#        axis.text.x=element_blank(),
-#        plot.title = element_text(size=18),
-#        panel.border = element_blank(),
-#        panel.grid.major.x = element_blank(),
-#        panel.grid.minor.x = element_blank()) +
-#labs(x="")#~paste(Delta,"PSI"))
-#splice_manhattan_plot_alt
+# with the scatterplots (panels D and E)
+FIG_2 <- (Fst_manhattan_plot / expr_manhattan_plot / splice_manhattan_plot) / (plot_spacer() |plot_LFC_vs_Fst | plot_dPSI_vs_Fst | plot_spacer()) + plot_layout(heights = c(1,1,1,1.25))
 
-#ggsave("figures/rMATS_manhattan.png", plot = splice_manhattan_plot,
-#       device = "png", width = 8, height = 6, units = "in", dpi = 300)
-       
-
-#FIG_2 <- Fst_manhattan_plot / expr_manhattan_plot / splice_manhattan_plot
-FIG_2 <- (Fst_manhattan_plot / expr_manhattan_plot / splice_manhattan_plot) | (plot_LFC_vs_Fst / plot_dPSI_vs_Fst)
-FIG_2 <- FIG_2 + plot_layout(widths = c(3, 1))
 FIG_2
+FIG_2 <- FIG_2 + plot_layout(widths = c(3, 1))
 
-#ggsave("figures/FIG_2_raw.png", plot = FIG_2,
-#       device = "png", width = 12, height = 7.2, units = "in", dpi = 300)
 
 ggsave("figures/FIG_2_raw.png", plot = FIG_2,
-       device = "png", width = 15, height = 7.2, units = "in", dpi = 300)
+       device = "png", width = 12, height = 10, units = "in", dpi = 300)
 
-#### match with Ath gene names and compare to results from other splicing analyses ####
-rmats_ds_genes <- subset(all_AS_events, FDR < .05) %>%
-  dplyr::select(GeneID) %>% unique() %>% #just get the unique genes (some genes have multiple events)
-  rename(Ha412_gene="GeneID") %>%
-  #mutate(Ha412_gene=gsub("gene","mRNA",Ha412_gene)) %>%
-  left_join(Ha412_Ath_mappings)
+# need to revise the plot font size and maybe patchwork widths in order to 
+# have the plot look right at the required dimensions (max 175mm).
+ggsave("figures/FIG_2_raw.pdf", plot = FIG_2,
+       device = "pdf", width = 175, height = 145.833, units = "mm", dpi = 300)
 
-write.table(rmats_ds_genes, file="analysis/rMATS/results_2022-07-14/significant_ds_genes.txt",
-            quote = F, row.names = F, sep = "\t")
-
-write.table(rmats_ds_genes$Ha412_gene,
-            file = "analysis/GO_analysis/study_DS_rMATS_genes.txt", quote = F,
-            row.names = F, sep = "\t", col.names = F)
-
-rmats_dexseq_overlap_genes <- inner_join(rmats_ds_genes, 
-                                         deu_genes_noLFCthreshold)
-rmats_dexseq_union_genes <- full_join(rmats_ds_genes, deu_genes_noLFCthreshold)
-rmats_dexseq_deseq2_overlap_genes <- inner_join(rmats_dexseq_overlap_genes,
-                                                de_genes_noLFCthreshold )
-
-parents_diff_ds_genes <- read.table("analysis/GO_analysis/study_DS_parents_diff_genes.txt",
-                                    col.names = "Ha412_gene")
-all_ds_overlap_genes <- inner_join(rmats_ds_genes, deu_genes_noLFCthreshold) %>%
-  inner_join(parents_diff_ds_genes)
+ggsave("figures/plot_splice_manhattan.pdf", plot = splice_manhattan_plot,
+       device = "pdf", width = 175, units = "mm", dpi = 300)
 
 
-write.table(rmats_dexseq_overlap_genes,
-            file="analysis/rmats_dexseq_overlap_genes.txt", quote = F,
-            row.names = F, sep = "\t")
-write.table(rmats_dexseq_overlap_genes$Ha412_gene,
-            file="analysis/GO_analysis/study_DS_rMATS_DEU_overlap_genes.txt",
-            quote = F, row.names = F, col.names = F)
+#### plot PSI values for individual events ####
+dune_fq <- c("Kane-602-10_S8_R1_001.trimmed.fq.gz",
+             "Kane-602-11_S9_R1_001.trimmed.fq.gz",
+             "Kane-602-12_S10_R1_001.trimmed.fq.gz",
+             "Kane-602-14_S11_R1_001.trimmed.fq.gz",
+             "Kane-602-15_S12_R1_001.trimmed.fq.gz",
+             "Kane-602-1_S1_R1_001.trimmed.fq.gz",
+             "Kane-602-2_S2_R1_001.trimmed.fq.gz",
+             "Kane-602-3_S3_R1_001.trimmed.fq.gz",
+             "Kane-602-4_S4_R1_001.trimmed.fq.gz",
+             "Kane-602-7_S5_R1_001.trimmed.fq.gz",
+             "Kane-602-8_S6_R1_001.trimmed.fq.gz",
+             "Kane-602-9_S7_R1_001.trimmed.fq.gz")
+PSI_df <- all_AS_events_PSI %>%
+  pivot_longer(4:27, names_to = "sample", values_to = "PSI") %>%
+  mutate(ecotype=if_else(sample %in% dune_fq, "Dune", "Non-dune"))
 
-write.table(rmats_dexseq_union_genes$Ha412_gene,
-            file="analysis/GO_analysis/study_DS_rMATS_DEU_union_genes.txt",
-            quote = F, row.names = F, col.names = F)
+PSI_df$PSI <- as.numeric(PSI_df$PSI)
 
-write.table(rmats_dexseq_deseq2_overlap_genes$Ha412_gene, file="analysis/GO_analysis/study_overlap_rMATS_DEU_DE_genes.txt", quote = F, row.names = F, col.names = F)
+# GLH17
+plot_GLH17_psi <- ggplot(data=PSI_df %>% filter(ID=="SE_8901"),
+       aes(x=ecotype, y=PSI,
+           fill=ecotype, shape=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype")
+
+# Ha412HOChr14g0679271. CHLD. TRINITY_DN20639_c0_g1
+
+plot_ALB1_psi <- ggplot(data=PSI_df %>% filter(ID=="RI_21314"),
+                         aes(x=ecotype, y=PSI,
+                             fill=ecotype, shape=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype")
+
+# Ha412HOChr09g0402961. A5SS_13302
+plot_ABCK14_psi <- ggplot(data=PSI_df %>% filter(ID=="A5SS_13302"),
+                        aes(x=ecotype, y=PSI,
+                            fill=ecotype, shape=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype")
+
+# rhodanese gene Ha412HOChr10g0445261 A5SS_14127.
+plot_Chr10g0445261_psi <- ggplot(data=PSI_df %>% filter(ID=="A5SS_14127"),
+                         aes(x=ecotype, y=PSI,
+                             fill=ecotype, shape=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype")
+
+#Ha412HOChr11g0508211
+plot_COR15A_psi <- ggplot(data=PSI_df %>% filter(ID=="SE_17019"),
+                          aes(x=ecotype, y=PSI,
+                              fill=ecotype, shape=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype")
+
+plot_CESA6_psi <- ggplot(data=PSI_df %>% filter(ID=="RI_15992"),
+                         aes(x=ecotype, y=PSI,
+                             fill=ecotype, shape=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_violin(alpha=0.25) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype")
+
+plot_EMB2004_psi <- ggplot(data=PSI_df %>% filter(ID=="RI_583"),
+                         aes(x=ecotype, y=PSI,
+                             fill=ecotype, shape=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_violin(alpha=0.25) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype")
+
+# Ha412HOChr15g0742211; transcriptome match is TRINITY_DN11324_c1_g1
+# RI_22481 is the RI event with highest dPSI for this gene. 
+plot_SCPL13_psi <- ggplot(data=PSI_df %>% filter(ID=="RI_22481"),
+                         aes(x=ecotype, y=PSI,
+                             fill=ecotype, shape=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_violin(alpha=0.25) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype")
+  
+
+#### plot gene splicing models ####
+library(genemodel)
+# I got the coordinates from the gff file
+# but had to manually add intron positions and also delete the 'gene' and 'mRNA'
+# annotations and instead add an 'ORF' annotation that gives coordinates from
+# start and end of the CDS regions
+
+GLH17_coords <- read.table("analysis/GLH17_coordinates.txt") %>%
+  rename(chrom=V1, type=V2, start=V3, end=V4) %>%
+  mutate(start=start-179781115, end=end-179781115) %>%
+  mutate(type=recode(type, CDS="coding_region", three_prime_UTR="3' utr",
+                     five_prime_UTR="5' utr"),
+         coordinates=paste0(start,"-",end)) %>%
+  dplyr::select(type,coordinates)
+
+GLH17_exon_skip_coords <- GLH17_coords[-c(16:18),]
+GLH17_exon_skip_coords[15,2] <- c("3063-4234")
+
+png("figures/GLH17_genemodels.png", width=4, height=5, units = "in", res = 300)
+par(mfrow=c(2,1), mar = c(0,0,0,0))
+genemodel.plot(model=GLH17_coords, start=179781116, bpstop=179786239,
+               orientation="reverse", xaxis=T)
+genemodel.plot(model=GLH17_exon_skip_coords, start=179781116, bpstop=179786239,
+               orientation="reverse", xaxis=F)
+
+dev.off()
+
 
 #### compare fraction of DE–DS overlap genes that are IR events, ####
-# compared to the number of IR events in non-overlapping DS genes. 
+# compared to the number of IR events in non-overlapping DS genes.
+
+sig_AS_events <- subset(all_AS_events, FDR<.05) %>%
+  rename("Ha412_gene"=GeneID)
 tmp <- inner_join(dplyr::select(sig_AS_events, ID, Ha412_gene),
                   dplyr::select(de_results_p05_Shrink, Ha412_gene))
 
@@ -411,38 +446,6 @@ sum(tmp$count)
 tmp2 <- rmatsout_summary %>% subset(Category=="SignificantEventsJCEC")
 sum(tmp2$Count)
 tmp2
-
-#### plot PSI values for individual events ####
-dune_fq <- c("Kane-602-10_S8_R1_001.trimmed.fq.gz",
-  "Kane-602-11_S9_R1_001.trimmed.fq.gz",
-  "Kane-602-12_S10_R1_001.trimmed.fq.gz",
-  "Kane-602-14_S11_R1_001.trimmed.fq.gz",
-  "Kane-602-15_S12_R1_001.trimmed.fq.gz",
-  "Kane-602-1_S1_R1_001.trimmed.fq.gz",
-  "Kane-602-2_S2_R1_001.trimmed.fq.gz",
-  "Kane-602-3_S3_R1_001.trimmed.fq.gz",
-  "Kane-602-4_S4_R1_001.trimmed.fq.gz",
-  "Kane-602-7_S5_R1_001.trimmed.fq.gz",
-  "Kane-602-8_S6_R1_001.trimmed.fq.gz",
-  "Kane-602-9_S7_R1_001.trimmed.fq.gz")
-tmp <- all_AS_events_PSI %>%
-  pivot_longer(4:27, names_to = "sample", values_to = "PSI") %>%
-  mutate(ecotype=if_else(sample %in% dune_fq, "dune", "non-dune"))
-
-tmp$PSI <- as.numeric(tmp$PSI)
-
-ggplot(data=tmp %>% filter(ID=="RI_2786"),
-       aes(x=ecotype, y=PSI,
-           fill=ecotype, shape=ecotype)) +
-  geom_point(size=5) +
-  theme_bw() +
-  theme(text = element_text(size=24),#,
-        legend.position = "none",
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=18)) +
-  scale_fill_manual(values = c("gold2", "forestgreen")) +
-  scale_shape_manual(values=c(24,21))
-
 
 #### looking at the genes in chr11 peak ####
 #chr11_deltaPSI <- all_AS_events_deltaPSI %>% 

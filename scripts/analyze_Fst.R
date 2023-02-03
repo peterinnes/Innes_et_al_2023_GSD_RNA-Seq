@@ -9,9 +9,9 @@ library(tidyr)
 #  rename("chrom"=CHROM)
 Fst <- read.table("analysis/Fst/Fst_2Mb_windows.weir.txt", header=T) %>%
   na.omit() %>%
-  rename(CHROM="chrom")
+  rename(chrom=CHROM)
 
-# convert negative Fst values to 0. Okay to do this?
+# convert negative Fst values to 0.
 for (i in 1:length(Fst$WEIGHTED_FST)) {
   if (Fst$WEIGHTED_FST[i] < 0) {
    Fst$WEIGHTED_FST[i] <- 0
@@ -20,6 +20,8 @@ for (i in 1:length(Fst$WEIGHTED_FST)) {
      Fst$MEAN_FST[i] <- 0
   }
 }
+
+save(Fst, file = "data2/Rdata/Fst_2Mb_windows.Rdata")
 
 # get the cumulative position of each SNP/window and then the max SNP end position on each chrom
 # get the cumulative length of each chromosome
@@ -34,7 +36,7 @@ cum_lengths <- chrom_lengths %>%
 # get inversion regions
 inversion_regions <- read.table("analysis/inversions/inversion_regions.txt") %>%
   dplyr::select(V2,V3,V4,V9) %>%
-  rename(V2="chrom", V3="start", V4="end", V9="name") %>%
+  rename(chrom=V2, start=V3, end=V4, name=V9) %>%
   filter(name %in% c("pet05.01", "pet09.01", "pet11.01", "pet17.01")) %>%
   left_join(cum_lengths[c(1,3)]) %>%
   mutate(inv_cumstart=start+cumstart, inv_cumend=end+cumstart)
@@ -76,14 +78,14 @@ Fst_manhattan_plot <- ggplot(data=Fst_manhattan_df,
   coord_cartesian(clip = 'off') +
   
   # custom theme
-  theme_bw() +
+  theme_bw(base_size=18) +
   theme(legend.position = "none",
         #axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
-        text = element_text(size=24),
+        #text = element_text(size=24),
         axis.text.x=element_blank(),
         axis.line.x = element_blank(),
         axis.ticks = element_blank(),
-        axis.text.y = element_text(size=18),
+        #axis.text.y = element_text(size=18),
         panel.border = element_blank(),
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank()) +
@@ -139,7 +141,7 @@ for (i in 1:(length(genes_gff$Ha412_gene)-2)) {
   genes_gff$win_end[i] <- win_end
 }
 
-# have to fill in the end positions of the last two genes
+# need to fill in the end positions of the last two genes
 # bc our loop doesn't reach them
 genes_gff$win_start[nrow(genes_gff)-1] <- genes_gff$gene_start[nrow(genes_gff)-3]
 genes_gff$win_end[nrow(genes_gff)-1] <- genes_gff$gene_end[nrow(genes_gff)]
@@ -155,12 +157,16 @@ write.table(dplyr::select(genes_gff, chrom, win_start, win_end),
             file="analysis/Fst/custom_gene_windows.bed",
             row.names = F, col.names = T, quote = F, sep = '\t')
 
+# We will use this bed file to calculate Fst for the custom windows
+# using Python scikit-allel (separate script)
+
 # read in Fst custom gene windows results from python 
 Fst_custom_gene_windows <- read.csv("analysis/Fst/Fst_custom_gene_windows.allel.csv",
                                     header=T) %>%
   left_join(genes_gff)
 
-# convert negative Fst values to 0, and missing values (windows with no variants) to 0 
+# convert negative Fst values to 0,
+# and missing values (windows with no variants) to 0.
 for (i in 1:nrow(Fst_custom_gene_windows) ){
   if ( is.na(Fst_custom_gene_windows$Fst[i]) ){
     Fst_custom_gene_windows$Fst[i] <- 0
@@ -171,56 +177,76 @@ for (i in 1:nrow(Fst_custom_gene_windows) ){
   
 head(Fst_custom_gene_windows)
 
-# plotting
+# load LFC and dPSI results
+load("data2/Rdata/DESeq2_results_Shrink.Rdata") #from analyze_differential_expression.R
+load("data2/Rdata/rmats_results_dfs.Rdata") #from analyze_splicing_rMATS.R
+
 LFC_vs_Fst_df <- data.frame(de_results_Shrink) %>% # without stringtie
   rownames_to_column("Ha412_gene") %>% 
   mutate(Ha412_gene=gsub(".*RNA","gene",Ha412_gene)) %>%
   left_join(Fst_custom_gene_windows) %>% 
   dplyr::filter(!grepl("Chr00", Ha412_gene), grepl("gene:", Ha412_gene))
+# set LFC to zero if not significant 
+for (i in 1:nrow(LFC_vs_Fst_df) ){
+  if ( !is.na(LFC_vs_Fst_df$padj[i])){
+    if ( LFC_vs_Fst_df$padj[i] >= .05 ){
+      LFC_vs_Fst_df$log2FoldChange[i] <- 0
+    }
+  }
+}
 
-plot_LFC_vs_Fst <- ggplot(data=LFC_vs_Fst_df, aes(x=Fst, y=abs(log2FoldChange))) +
-  geom_point(size=2.5,alpha=0.5) +
-  geom_smooth(method = "lm", color="red") +
-  theme_bw() +
-  #ylim(c(0,10)) +
-  theme(text = element_text(size=24),#,
-        #legend.title=element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=18)) +
-  labs(x="", y="|log2FC|")
-
-fit_LFC_vs_Fst <- lm(abs(log2FoldChange) ~ Fst, data = LFC_vs_Fst_df)
-summary(fit_LFC_vs_Fst)
 
 # with splicing data
-dPSI_vs_Fst_df <- all_AS_events_deltaPSI %>%
-  rename(GeneID="Ha412_gene") %>%
+dPSI_vs_Fst_df <- all_AS_events_deltaPSI
+# set dPSI to zero if not significant
+for (i in 1:nrow(dPSI_vs_Fst_df) ){
+  if (dPSI_vs_Fst_df$FDR[i] >= .05 ){
+    dPSI_vs_Fst_df$IncLevelDifference[i] <- 0
+  }
+}
+dPSI_vs_Fst_df <- dPSI_vs_Fst_df%>%
+  rename(Ha412_gene=GeneID) %>%
   group_by(Ha412_gene) %>%
-  summarise(n=n(),deltaPSI=max(abs(IncLevelDifference))) %>%
+  summarise(n_events=n(),max_deltaPSI=max(abs(IncLevelDifference))) %>%
   left_join(Fst_custom_gene_windows) %>%
   dplyr::filter(!grepl("Chr00", Ha412_gene)) %>%
   as.data.frame()
 
+# save dfs for plotting
+save(LFC_vs_Fst_df, dPSI_vs_Fst_df, file = "data2/Rdata/LFC_dPSI_vs_Fst.Rdata")
+
+# plotting and linear models
+plot_LFC_vs_Fst <- ggplot(data=LFC_vs_Fst_df, aes(x=Fst, y=abs(log2FoldChange))) +
+  geom_point(size=2.5,alpha=0.5) +
+  geom_smooth(method = "lm", color="red") +
+  theme_bw(base_size = 18) +
+  #ylim(c(0,10)) +
+  theme(#text = element_text(size=24),#,
+        #legend.title=element_blank(),
+        #plot.title = element_text(size=18),
+        #axis.text = element_text(size=18),
+        panel.grid.major = element_blank()) +
+  labs(x=expression(italic(F)["st"]), y="|log2FC|")
+
+fit_LFC_vs_Fst <- lm(abs(log2FoldChange) ~ Fst, data = LFC_vs_Fst_df)
+summary(fit_LFC_vs_Fst)
+
 plot_dPSI_vs_Fst <- ggplot(data=dPSI_vs_Fst_df, aes(x=Fst, y=deltaPSI)) +
   geom_point(size=2.5,alpha=0.5) +
   geom_smooth(method = "lm", color="red") +
-  theme_bw() +
-  theme(text = element_text(size=24),#,
+  theme_bw(base_size=18) +
+  theme(#text = element_text(size=24),#,
         #legend.title=element_blank(),
-        panel.grid.major = element_blank(),
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=18)) +
+      #plot.title = element_text(size=18),
+      #axis.text = element_text(size=18),
+        panel.grid.major = element_blank()) +
   labs(x=expression(italic(F)["st"]), y=~paste("|",Delta,"PSI|"))
 
-fit_dPSI_vs_Fst <- lm(deltaPSI ~ Fst, data = dPSI_vs_Fst_df)
+fit_dPSI_vs_Fst <- lm(max_deltaPSI ~ Fst, data = dPSI_vs_Fst_df)
 summary(fit_dPSI_vs_Fst)
 
-#FIG_2.5 <- (plot_LFC_vs_Fst / plot_dPSI_vs_Fst)
-#ggsave("figures/FIG_2.5_raw.png", plot=FIG_2.5, device = "png",
-#       height = 4.8, dpi = 300, units = "in")
 
-
+#### scraps ####
 ## Using windowed Fst from vcftools
 #Fst_per_gene_window_df <- read.table("analysis/Fst/intersect_Fst_100Kb_windows_gff_genes.txt") %>% 
 #  dplyr::select(c(1:6, 8:10, 17))

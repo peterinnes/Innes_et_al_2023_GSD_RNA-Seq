@@ -15,8 +15,8 @@ library(rtracklayer)
 sample_table_deseq2 <- read.table("analysis/DESeq2/sample_table.txt", header=T)
 sample_table_deseq2$habitat <- as.factor(sample_table_deseq2$habitat)
 counts <- read.table("analysis/DESeq2/htseq-count_out/htseq-count_results.2022-6-26.txt",
-                     row.names = 1) #with HAN412 gtf
-#counts <- read.table("analysis/DESeq2/htseq-count_out/htseq-count_results.with_stringtie_gtf.2022-6-26.txt", row.names = 1) #with stringtie gtf
+                     row.names = 1)
+
 
 names(counts) <- paste(sample_table_deseq2$habitat,"_",
                        sample_table_deseq2$sample_no, sep = "")
@@ -64,7 +64,8 @@ write.table(low_expressed_genes, "low_expressed_genes.txt", quote = F,
 # get list of all multi-exonic genes in the genome
 gff <- data.frame(rtracklayer::
                     import("data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.gff3")) %>%
-  rename(seqnames="chrom", Parent="Ha412_gene")
+  rename(chrom=seqnames, Ha412_gene=Parent)
+
 multi_exon_genes <- filter(gff, type=="exon") %>%
   group_by(Ha412_gene) %>%
   summarise(num_exons=n()) %>%
@@ -88,6 +89,7 @@ load("analysis/DESeq2/DESeq2_results.Robj") #without stringtie
 
 # normalized counts will be used later for eQTL analysis?
 normalized_counts <- as.data.frame(DESeq2::counts(DE, normalized=TRUE))
+save(normalized_counts, file = "data2/Rdata/DESeq2_normalized_counts.Rdata")
 
 # regularized-log transformation, for expression PCA. Needs to be applied
 # WITHOUT normalization bc it requires expression values to be integers
@@ -100,22 +102,23 @@ write.table(temp, file="analysis/DESeq2/rlog-transformed_expression_counts.tsv",
             quote = F, row.names = F, sep = "\t")
 
 #### DE results ####
-# Provide contrast argument to set dune habitat in the numerator. Set LFC threshold of 1, which means a particular gene having twice as much expression in one ecotype vs the other. ALso, set significance threshold to .05 
-#de_results <- data.frame(results(DE, contrast = c("habitat","dune","non-dune"), alpha = .05, cooksCutoff = T)) #%>% #no LFC threshold, no LFC shrinkage
-#  rownames_to_column("id")
-#de_results_p05 <- de_results %>%
-#  arrange(desc(abs(log2FoldChange))) %>%
-#  subset(padj<.05) #filter for just the significant DE genes
-de_results_lfc1 <- data.frame(results(DE, contrast = c("habitat","dune","non-dune"), alpha = .05, lfcThreshold = 1, altHypothesis="greaterAbs", cooksCutoff = T)) %>% #threshold of LFC=1
-  rownames_to_column("id")
-#de_results_lfc1_p05 <- data.frame(de_results_lfc1) %>%
-#  arrange(desc(abs(log2FoldChange))) %>%
-#  subset(padj<.05) #filter for just the significant DE genes (at LFC>=1)
-
-# DE without logFold threshold. Shrink Log Fold Change for visualization and ranking
+# DE results without logFold threshold. Shrink Log Fold Change for visualization and ranking
 de_results_Shrink <- lfcShrink(DE, coef=c("habitat_dune_vs_non.dune"), type="apeglm")
 summary(de_results_Shrink, alpha=.05)
-de_results_p05_Shrink <- data.frame(de_results_Shrink) %>% # without stringtie
+
+## Provide contrast argument to set dune habitat in the numerator. Set LFC threshold of 1, which means a particular gene having twice as much expression in one ecotype vs the other. ALso, set significance threshold to .05 
+#de_results_lfc1 <- data.frame(results(DE, contrast = c("habitat","dune","non-dune"), alpha = .05, lfcThreshold = 1, altHypothesis="greaterAbs", cooksCutoff = T)) %>% rownames_to_column("id")
+
+de_results_Shrink_df <- data.frame(de_results_Shrink) %>% #table for Sup Mat
+  rownames_to_column("Ha412_gene") %>%
+  mutate(Ha412_gene=gsub(".*RNA","gene",Ha412_gene)) %>%
+  filter(grepl("gene:", Ha412_gene)) %>%
+  arrange(padj) %>%
+  left_join(Ha412_Ath_mappings) %>%
+  rename(Ha412_gene="Ha412HOv2_gene",
+         Ath_gene="Araport11_gene")
+  
+de_results_p05_Shrink_df <- data.frame(de_results_Shrink) %>% # without stringtie
   rownames_to_column("Ha412_gene") %>% 
   mutate(Ha412_gene=gsub(".*RNA","gene",Ha412_gene)) %>% #replace 'mRNA' and 'ncRNA' w/ 'gene'
   subset(padj<.05) %>% 
@@ -124,10 +127,11 @@ de_results_p05_Shrink <- data.frame(de_results_Shrink) %>% # without stringtie
   #arrange(desc(abs(log2FoldChange))) %>%
   arrange(padj) %>%
   left_join(Ha412_Ath_mappings)
-de_genes_noLFCthreshold <- subset(de_results_p05_Shrink, padj<.05) %>%
+
+de_genes_noLFCthreshold <- subset(de_results_p05_Shrink_df, padj<.05) %>%
   dplyr::select(Ha412_gene, Ath_gene)
-de_genes_dune_noLFCthreshold <- subset(de_results_p05_Shrink, log2FoldChange>0)
-de_genes_non.dune_noLFCthreshold <- subset(de_results_p05_Shrink, log2FoldChange<0)
+de_genes_dune_noLFCthreshold <- subset(de_results_p05_Shrink_df, log2FoldChange>0)
+de_genes_non.dune_noLFCthreshold <- subset(de_results_p05_Shrink_df, log2FoldChange<0)
 
 ## with LFC=0.5 threshold
 #de_results_lfc0.5_Shrink <- lfcShrink(DE, coef=c("habitat_dune_vs_non.dune"),
@@ -159,12 +163,16 @@ de_genes_non.dune_noLFCthreshold <- subset(de_results_p05_Shrink, log2FoldChange
 #de_genes_dune_lfc1 <- subset(de_results_lfc1_s005_Shrink, log2FoldChange>0)
 #de_genes_non.dune_lfc1 <- subset(de_results_lfc1_s005_Shrink, log2FoldChange<0)
 
-
-# write list of genes to file
-write.table(de_results_p05_Shrink,
+# save DE results as Rdata and write tables/gene lists to file
+# e.g. for GO analysis
+save(de_results_Shrink, file = "data2/Rdata/DESeq2_results_Shrink.Rdata")
+write.table(de_results_Shrink_df,
+            file="analysis/DESeq2/DESeq2_results_shrinkage.tsv", sep = '\t',
+            quote = F, row.names = F)
+write.table(de_results_p05_Shrink_df,
             file = "analysis/DESeq2/DE_genes_noLFCthreshold_p05_Shrink.tsv",
             sep = '\t', quote = F, row.names = F)
-write.table(de_results_p05_Shrink$Ha412_gene,
+write.table(de_results_p05_Shrink_df$Ha412_gene,
             file = "analysis/GO_analysis/study_DE_genes_noLFCthreshold.txt",
             sep = '\t', quote = F, row.names = F, col.names = F)
 write.table(de_genes_dune_noLFCthreshold$Ha412_gene,
@@ -174,44 +182,10 @@ write.table(de_genes_non.dune_noLFCthreshold$Ha412_gene,
             file = "analysis/GO_analysis/study_DE_genes_non-dune_noLFCthreshold.txt",
             sep = '\t', quote = F, row.names = F, col.names = F)
 
-#write.table(de_results_lfc0.5_s005_Shrink,
-#            file = "analysis/DESeq2/DE_genes_LFC0.5_sval005_Shrink.tsv",
-#            sep = '\t', quote = F, row.names = F)
-#write.table(de_genes_dune_lfc0.5$Ha412_gene,
-#            file = "analysis/GO_analysis/study_DE_genes_dune_LFC0.5.txt",
-#            sep = '\t', quote = F, row.names = F, col.names = F)
-#write.table(de_genes_non.dune_lfc0.5$Ha412_gene,
-#            file = "analysis/GO_analysis/study_DE_genes_non-dune_LFC0.5.txt",
-#            sep = '\t', quote = F, row.names = F, col.names = F)
-#
-#write.table(de_results_lfc1_s005_Shrink,
-#            file = "analysis/DESeq2/DE_genes_LFC1_sval005_Shrink.tsv",
-#            sep = '\t', quote = F, row.names = F)
-#write.table(de_genes_dune$Ha412_gene,
-#            file = "analysis/GO_analysis/study_DE_genes_dune_LFC1.txt",
-#            sep = '\t', quote = F, row.names = F, col.names = F)
-#write.table(de_genes_non.dune$Ha412_gene,
-#            file = "analysis/GO_analysis/study_DE_genes_non-dune_LFC1.txt",
-#            sep = '\t', quote = F, row.names = F, col.names = F)
-
-#write.table(dplyr::select(de_results_p05, stringtie_gene), file = "analysis/DESeq2/DE_genes_padj.05.tsv", sep = '\t', quote = F, row.names = F)
-#write.table(dplyr::select(de_results_lfc1_p05, stringtie_gene), file = "analysis/DESeq2/DE_genes_LFC1_padj.05.tsv", sep = '\t', quote = F, row.names = F)
-
-
 #### Diff expression manhattan plot ####
-
-# Read-in our annotations, for the gene positions. 
-gff <- data.frame(rtracklayer::
-                    import("data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.gff3")) %>%
-  rename(seqnames="chrom", Parent="Ha412_gene")
-# Filter for only the mRNA, ncRNA, and rRNA (has same positions as 'gene';
+# Filter gff for only the mRNA, ncRNA, and rRNA (has same positions as 'gene';
 # there are 8 ncRNAs in or DE gene list, notably)
 transcripts <- filter(gff, type %in% c("mRNA", "ncRNA", "rRNA"))
-
-## use stringtie gtf instead
-#gtf <- data.frame(rtracklayer::import("data/stringtie/merged_transcripts.stringtie.gtf")) %>%
-#  rename(seqnames="chrom") 
-#transcripts <- subset(gtf, type=="transcript")
 
 # get the cumulative position of each gene and then
 # the max gene end position on each chrom
@@ -226,22 +200,22 @@ cum_lengths <- chrom_lengths %>%
 # get inversion regions
 inversion_regions <- read.table("analysis/inversions/inversion_regions.txt") %>%
   dplyr::select(V2,V3,V4,V9) %>%
-  rename(V2="chrom", V3="start", V4="end", V9="name") %>%
+  rename(chrom=V2, start=V3, end=V4, name=V9) %>%
   filter(name %in% c("pet05.01", "pet09.01", "pet11.01", "pet17.01")) %>%
   left_join(cum_lengths[c(1,3)]) %>%
   mutate(inv_cumstart=start+cumstart, inv_cumend=end+cumstart)
 
-# expression manhattan plot but with no LFC threshold on DE test
+# expression manhattan plot with no LFC threshold on DE test
 expr_manhattan_df_noLFCthreshold <- left_join(data.frame(de_results_Shrink) %>%
-                                                rownames_to_column("ID"),
+                                                tibble::rownames_to_column("Ha412_gene"),
                                               dplyr::select(transcripts,
-                                                            ID,
+                                                            Ha412_gene,
                                                             chrom,
                                                             start,
                                                             end,
                                                             strand)) %>%
-  mutate(ID=gsub("mRNA","gene",ID)) %>%
-  mutate(ID=gsub("ncRNA","gene",ID)) %>%
+  mutate(Ha412_gene=gsub("mRNA","gene",Ha412_gene)) %>%
+  mutate(Ha412_gene=gsub("ncRNA","gene",Ha412_gene)) %>%
   inner_join(cum_lengths) %>% #inner join gets rid of non-chromosomal contigs
   mutate(gene_cumstart = start + cumstart, sig=if_else(padj<.05, "yes", "no"))
 
@@ -258,9 +232,10 @@ notsig_data_expr <- expr_manhattan_df_noLFCthreshold %>%
   subset(padj >= .05) %>%
   group_by(chrom) %>% 
   sample_frac(0.75)
+
 notsig_remove_expr <- subset(notsig_data_expr,abs(log2FoldChange) < .05) %>%
   sample_frac(0.95) #remove 95% of LFC <.05 non-significant genes.
-notsig_keep_expr <- !(notsig_data_expr$ID %in% notsig_remove_expr$ID)
+notsig_keep_expr <- !(notsig_data_expr$Ha412_gene %in% notsig_remove_expr$Ha412_gene)
 notsig_data_expr <- notsig_data_expr[notsig_keep_expr,]
 
 expr_manhattan_df_noLFCthreshold_reduced <- bind_rows(sig_data_expr,
@@ -309,15 +284,15 @@ expr_manhattan_plot <- ggplot(expr_manhattan_df_noLFCthreshold_reduced,
   coord_cartesian(clip = 'off') +
   
   # custom theme
-  theme_bw() +
+  theme_bw(base_size=18) +
   theme(legend.position = "none",
         #axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1),
-        text = element_text(size=24),
+        #text = element_text(size=24),
         axis.line.x = element_blank(),
         axis.ticks = element_blank(),
         axis.text.x=element_blank(),
-        plot.title = element_text(size=18),
-        axis.text.y = element_text(size=18),
+        #plot.title = element_text(size=18),
+        #axis.text.y = element_text(size=18),
         panel.border = element_blank(),
         panel.grid.major.x = element_blank(),
         panel.grid.minor.x = element_blank()) +
@@ -325,55 +300,8 @@ expr_manhattan_plot <- ggplot(expr_manhattan_df_noLFCthreshold_reduced,
   labs(x="", y="log2FC")
 
 expr_manhattan_plot
-
 ggsave("figures/expr_manhattan.png",plot = expr_manhattan_plot, device = "png",
        width = 8, height = 6, units = "in", dpi = 300)
-
-#expr_manhattan_df <- left_join(data.frame(de_results_lfc1_Shrink) %>% rownames_to_column("ID"), dplyr::select(transcripts, ID, #chrom, start, end, strand)) %>%
-#  inner_join(cum_lengths) %>% #inner join gets rid of non-chromosomal contigs. There were 12 sig DE genes on these unmapped contigs#. 
-#  #rowwise() %>%
-#  # get the cumulative start position of each gene
-#  # and yes/no if it passes significance threshold, in this case svalue<.005
-#  mutate(startcum = start + cumend, sig=if_else(svalue<.005, "yes", "no"))
-#
-## split apart significant DE genes and nonsignifcant DE genes so we can downsample the nonsig data #for prettier plot
-#sig_data_expr <- expr_manhattan_df %>% 
-#  subset(svalue < .005)
-#notsig_data_expr <- expr_manhattan_df %>% 
-#  subset(svalue >= .005) %>%
-#  group_by(chrom) %>% 
-#  sample_frac(0.75)
-#notsig_remove_expr <- subset(notsig_data,abs(log2FoldChange) < .05) %>%
-#  sample_frac(0.95)
-#notsig_keep_expr <- !(notsig_data$ID %in% notsig_remove$ID)
-#notsig_data_expr <- notsig_data[notsig_keep,]
-#
-#expr_manhattan_df_reduced <- bind_rows(sig_data_expr, notsig_data_expr)
-#
-## get middle position of each chromosome for x axis label
-#axisdf_expr <- expr_manhattan_df_reduced %>%
-#  group_by(chrom) %>%
-#  summarize(center=(max(startcum) + min(startcum)) / 2) %>%
-#  mutate(chrom=c("1","2","3","4","5",
-#                 "6","7","8","9","10",
-#                 "11","12","13","14","15",
-#                 "16","17"))
-#
-#expr_manhattan_plot <- ggplot(expr_manhattan_df_reduced, aes(x=startcum, y=log2FoldChange, color=as.factor(chrom), alpha=as.factor#(sig)=="yes")) +
-#  geom_point(size=3) +
-#  scale_x_continuous(label = axisdf_expr$chrom, breaks = axisdf_expr$center, expand=c(0.0175,0.0175)) +
-#  scale_color_manual(values = rep(c("cornflowerblue", "grey50"), unique(length(axisdf_expr$chrom)))) +
-#  scale_alpha_manual(values = c(.1,1)) +
-#  theme_classic() +
-#  theme(legend.position = "none",
-#        text = element_text(size = 36),
-#        axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
-#  geom_hline(yintercept = -1, linetype = "dashed") +
-#  geom_hline(yintercept = 1, linetype = "dashed") +
-#  geom_segment(data=inversion_regions, aes(x=startcum, xend=endcum, y=0, yend=0),
-#               size=6, color="red", alpha=0.8) +
-#  labs(x="Chromosome", title = "Differential expression")
-#ggsave("figures/expr_manhattan.png",plot = expr_manhattan_plot, device = "png", width = 8, height = 6, units = "in", dpi = 300)
 
 #### how many DE genes on each chromosome? ####
 chrom_lengths <- read.table("data/ref_genome_Ha412HO/chrom_sizes_Ha412HOv2.0.txt",
@@ -399,14 +327,256 @@ DE_genes_per_chrom_plot <- ggplot(data=de_genes_per_chrom,
   theme(text = element_text(size=36),
         legend.position = "none",
         legend.title = element_blank())
+  
+#### individual genes expression plots ####
+norm_expr_df <- normalized_counts[,order(colnames(normalized_counts))] %>% 
+  rownames_to_column("Ha412_gene") %>%
+  mutate(Ha412_gene=gsub(".*RNA","gene",Ha412_gene)) %>%
+  pivot_longer(2:25, names_to = "sample", values_to = "normalized_expression") %>%
+  mutate(ecotype=if_else(grepl("non", sample), "Non-dune", "Dune"),
+         Ha412_gene=gsub("gene:","",Ha412_gene))
+  
 
-#FIG_2 <- plot_spacer() / Fst_manhattan_plot | (expr_manhattan_plot / DE_genes_per_chrom_plot)
-#ggsave("figures/FIG_2.jpg", plot=FIG_2, width=56, height = 28, dpi = 600, units = "cm", bg = "white")
+# ATPase alpha subunit. ATCG00120. All 3 sunflower homologs are DE:
+# "Ha412HOChr13g0618161","Ha412HOChr17g0827191", "Ha412HOChr17g0827211"
+# Just plot the two more expressed homologs
+ATPalpha_homologs <- c("Ha412HOChr13g0618161",
+                       "Ha412HOChr17g0827191")
+
+# ATCG00480 is chloroplast-encoded gene for beta subunit of ATP synthase.
+# Sunflower appears to have multiple copies of this gene in the nuclear genome.
+# All four DE but just two are mod to highly expressed.
+# "Ha412HOChr01g0005241", "Ha412HOChr13g0616301",
+# "Ha412HOChr08g0354771", "Ha412HOChr07g0317901"
+ATPbeta_homologs <- c("Ha412HOChr01g0005241",
+                "Ha412HOChr13g0616301")
+
+# AT4G04640 i.e. ATPC1 encodes chloroplast ATP synthase subunit gamma
+# Three homologs, none are significantly DE, but two show a trend of non-dune upreg
+# "Ha412HOChr02g0069731" very lowly expressed.
+ATPgamma_homologs <- c("Ha412HOChr05g0200861", 
+                       "Ha412HOChr15g0702251")
+
+# AT4G09650 encodes the chloroplast ATP synthase delta subunit. 
+# two of the four homologs are DE: Ha412HOChr02g0070001 and Ha412HOChr05g0243771.
+# "Ha412HOChr05g0243771", "Ha412HOChr10g0431791"
+# "Ha412HOChr01g0001311", "Ha412HOChr02g0070001" are very lowly expressed though.
+ATPdelta_homologs <- c("Ha412HOChr05g0243771",
+                       "Ha412HOChr10g0431791")
+
+# ATCG00470 subunit epsilon. Both are significantly DE but
+# Ha412HOChr07g0308261 is very lowly expressed
+ATPepsilon_homologs <- c("Ha412HOChr07g0308261", 
+                         "Ha412HOChr13g0618521")
+
+# ATCG00150 aka ATPI Encodes a subunit of ATPase complex CF0,
+# which is a proton channel that supplies the proton motive force
+# to drive ATP synthesis by CF1 portion of the complex.
+# all 3 are significantly DE though Ha412HOChr13g0620231 is lowly expressed
+ATPi_homologs <- c("Ha412HOChr12g0569601",
+                   "Ha412HOChr13g0620221")
+
+ATPase_list <- list(ATPalpha_homologs, ATPbeta_homologs, ATPgamma_homologs,
+                    ATPdelta_homologs, ATPepsilon_homologs, ATPi_homologs)
+
+ATPase_plot_list <- list()
+i <- 1
+for( subunit in ATPase_list ){
+  plot <- ggplot(data=norm_expr_df %>% filter(Ha412_gene %in% subunit),
+         aes(x=ecotype, y=normalized_expression, shape=ecotype, fill=ecotype)) +
+    facet_wrap("Ha412_gene") +
+    #geom_point(size=5) +
+    #geom_violin(alpha=.25) +
+    geom_point(size=3, alpha=.75, position = position_jitter(width = .2)) +
+    geom_boxplot(alpha=0.25, outlier.shape=NA) +
+    theme_bw(base_size = 12) +
+    theme(legend.position = "none",
+          strip.text = element_text(size = 7)) +
+    scale_fill_manual(values = c("gold2", "forestgreen")) +
+    scale_color_manual(values = c("gold2", "forestgreen")) +
+    scale_shape_manual(values=c(24,21)) +
+    labs(x="Ecotype", y="Normalized expression")
+  ATPase_plot_list[[i]] <- plot
+  i <- i + 1
+}
+ATPase_plot_list[[1]] <- ATPase_plot_list[[1]] +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) + 
+  labs(x="",y="Norm. expression")#1x3
+
+ATPase_plot_list[[2]] <- ATPase_plot_list[[2]] +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  labs(x="", y="")
+
+ATPase_plot_list[[3]] <- ATPase_plot_list[[3]] +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  labs(x="",y="Norm. expression")
+
+ATPase_plot_list[[4]] <- ATPase_plot_list[[4]] + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  labs(x="", y="")
+
+ATPase_plot_list[[5]] <- ATPase_plot_list[[5]] +
+  labs(y="Norm. expression")
+
+ATPase_plot_list[[6]] <- ATPase_plot_list[[6]] +
+  labs(y="")
+
+plot_ATPase_expr <- (ATPase_plot_list[[1]] | ATPase_plot_list[[2]]) /
+  (ATPase_plot_list[[3]] | ATPase_plot_list[[4]]) /
+  (ATPase_plot_list[[5]] | ATPase_plot_list[[6]])
+
+ggsave("figures/plot_ATPase_expr_raw.v2.pdf", plot=plot_ATPase_expr, device = "pdf",
+       height = 145.833, width = 175, dpi = 300, units = "mm")
+
+# GLH17
+plot_GLH17_expr <- ggplot(data=norm_expr_df %>%
+                            filter(Ha412_gene %in% c("Ha412HOChr02g0088581")),
+               aes(x=ecotype, y=normalized_expression,
+                   shape=ecotype, fill=ecotype)) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype", y="Norm. expression")
+
+# CESA6
+plot_CESA6_expr <- ggplot(data=norm_expr_df %>%
+                            filter(Ha412_gene %in% c("Ha412HOChr05g0243281")),
+                          aes(x=ecotype, y=normalized_expression,
+                              shape=ecotype, fill=ecotype)) +
+  #facet_wrap("Ha412_gene") +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype", y="Normalized expression")
+
+# EMB2004; AT1G10510
+plot_EMB2004_expr <- ggplot(data=norm_expr_df %>%
+                            filter(Ha412_gene %in% c("Ha412HOChr17g0820321")),
+                          aes(x=ecotype, y=normalized_expression,
+                              shape=ecotype, fill=ecotype)) +
+  #facet_wrap("Ha412_gene") +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none",
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()) +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype", y="Normalized expression")
+
+# SCPL13
+plot_SCPL13_expr <- ggplot(data=norm_expr_df %>%
+                             filter(Ha412_gene %in% c("Ha412HOChr05g0243281")),
+                           aes(x=ecotype, y=normalized_expression,
+                               shape=ecotype, fill=ecotype)) +
+  facet_wrap("Ha412_gene") +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype", y="Normalized expression") 
+
+# SCPL13
+plot_SCPL13_expr <- ggplot(data=norm_expr_df %>%
+                             filter(Ha412_gene %in% c("Ha412HOChr15g0742211")),
+                           aes(x=ecotype, y=normalized_expression,
+                               shape=ecotype, fill=ecotype)) +
+  facet_wrap("Ha412_gene") +
+  #geom_point(size=5) +
+  #geom_violin(alpha=.25) +
+  geom_point(size=5, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 18) +
+  theme(legend.position = "none") +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype", y="Normalized expression") 
+
+# ATO (SF3a60, AT5G06160)
+# two Ha12HO homologs: Ha412HOChr09g0395181 and Ha412HOChr09g0395201; 
+# the latter is strongly DE; the former is far more highly expressed, but not DE
+plot_ATO_expr <- ggplot(data=norm_expr_df %>%
+                             filter(Ha412_gene %in% c("Ha412HOChr09g0395201")),
+                           aes(x=ecotype, y=normalized_expression,
+                               shape=ecotype, fill=ecotype)) +
+  facet_wrap("Ha412_gene") +
+  geom_point(size=3, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 6)) +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="", y="Normalized expression")
+
+# SUS2 (AT1G80070).
+# Seven Ha412HO homologs, but just 3 are DE:
+# Ha412HOChr02g0050341, Ha412HOChr16g0759321, Ha412HOChr16g0759311
+# Note that the non-DE SUS2 homolog Ha412HOChr04g0149001 
+# is the most highly expressed homolog at 7322 base mean;
+# the DE homolog Ha412HOChr02g0050341 has next highest base mean of 213.
+plot_SUS2_expr <- ggplot(data=norm_expr_df %>%
+                          filter(Ha412_gene %in% c("Ha412HOChr02g0050341")),
+                        aes(x=ecotype, y=normalized_expression,
+                            shape=ecotype, fill=ecotype)) +
+  facet_wrap("Ha412_gene") +
+  geom_point(size=3, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 6)) +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="Ecotype", y="")
+
+# CWC22 homolog splice factor
+plot_CWC22_expr <- ggplot(data=norm_expr_df %>%
+                            filter(Ha412_gene %in% c("Ha412HOChr08g0341371",
+                                                     "Ha412HOChr08g0341411")),
+                          aes(x=ecotype, y=normalized_expression,
+                              shape=ecotype, fill=ecotype)) +
+  facet_wrap("Ha412_gene") +
+  geom_point(size=3, alpha=.75, position = position_jitter(width = .1)) +
+  geom_boxplot(alpha=0.25, outlier.shape = NA) +
+  theme_bw(base_size = 12) +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 6)) +
+  scale_fill_manual(values = c("gold2", "forestgreen")) +
+  scale_color_manual(values = c("gold2", "forestgreen")) +
+  scale_shape_manual(values=c(24,21)) +
+  labs(x="", y="")
+
+plot_splice_factor_expr <- plot_ATO_expr + plot_SUS2_expr + plot_CWC22_expr +
+  plot_layout(widths = c(1,1,1.75))
+ggsave("figures/plot_splice_factor_expr_raw.pdf",
+       plot = plot_splice_factor_expr,
+       device ="pdf", height = 65.625, width = 175, units ="mm", dpi = 300)
 
 #### Volcano plot ####
-deseq2::
 pval_outliers <- c("gene:Ha412HOChr01g0005241", "gene:Ha412HOChr13g0616301",
-                   "gene:Ha412HOChr17g0815401", "gene:Ha412HOChr08g0354771")
+                     "gene:Ha412HOChr17g0815401", "gene:Ha412HOChr08g0354771")
 
 data.frame(de_results_Shrink) %>%
   rownames_to_column("Ha412_gene") %>% 
@@ -419,38 +589,6 @@ data.frame(de_results_Shrink) %>%
   theme_bw() +
   theme(text = element_text(size=24),
         axis.text = element_text(size=18))
-  
-#### normalized expression plots ####
-norm_expr_df <- normalized_counts[,order(colnames(normalized_counts))] %>% 
-  rownames_to_column("Ha412_gene") %>%
-  mutate(Ha412_gene=gsub(".*RNA","gene",Ha412_gene)) %>%
-  pivot_longer(2:25, names_to = "sample", values_to = "normalized_expression") %>%
-  mutate(ecotype=if_else(grepl("non", sample), "non-dune", "dune"))
-
-ATPalpha_homologs <- c("gene:Ha412HOChr13g0618161",
-                       "gene:Ha412HOChr17g0827191",
-                       "gene:Ha412HOChr17g0827211")
-ATPbeta_homologs <- c("gene:Ha412HOChr01g0005241",
-                "gene:Ha412HOChr07g0317901",
-                "gene:Ha412HOChr08g0354771",
-                "gene:Ha412HOChr13g0616301")
-ATPdelta_homologs <- c("gene:Ha412HOChr04g0182631",
-"gene:Ha412HOChr17g0845081",
-"gene:Ha412HOChr16g0788361")
-
-ggplot(data=norm_expr_df %>% filter(Ha412_gene %in% ATPdelta_homologs),
-       aes(x=ecotype, y=normalized_expression,
-                    fill=ecotype, shape=ecotype)) +
-  facet_wrap("Ha412_gene") +
-  geom_point(size=5) +
-  theme_bw() +
-  theme(text = element_text(size=24),#,
-        legend.position = "none",
-        plot.title = element_text(size=18),
-        axis.text = element_text(size=18)) +
-  scale_fill_manual(values = c("gold2", "forestgreen")) +
-  scale_shape_manual(values=c(24,21))
-
 
 #### MA plot ####
 #MA_plot <- ggplot(data.frame(de_results_lfc1_Shrink), aes(x=baseMean, y=log2FoldChange, color=svalue<.005)) +
