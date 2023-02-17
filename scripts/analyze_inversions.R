@@ -47,7 +47,7 @@ write.table(DE_gene_regions.bed, file = "analysis/DESeq2/DE_gene_regions.bed",
 # bedtools intersect -loj -a analysis/inversions/four_inversion_regions.bed -b analysis/DESeq2/DE_gene_regions.bed | wc -l
 
 # count number of expressed genes of any kind in the inversions = 1958; non-DE genes within inversions = 1958 - 593 = 1365
-# bedtools map -a ~/gsd_RNA-seq/analysis/inversions/four_inversion_regions.bed -b ~/gsd_RNA-seq/data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.expressed_genes_gff.tmp -c 10 -o count_distinct | cut -f4 | paste -sd+ | bc
+# bedtools map -a ~/gsd_RNA-seq/analysis/inversions/four_inversion_regions.bed -b ~/gsd_RNA-seq/data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.expressed_genes_gff.tmp -c 10 -o count_distinct | cut -f4 | paste -s-------d+ | bc
 
 # count number of DE genes outside inversions = 4510
 # bedtools intersect -v -a ~/gsd_RNA-seq/analysis/DESeq2/DE_gene_regions.bed -b ~/gsd_RNA-seq/analysis/inversions/four_inversion_regions.bed | wc -l

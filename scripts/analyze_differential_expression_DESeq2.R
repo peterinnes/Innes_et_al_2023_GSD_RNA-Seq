@@ -128,8 +128,6 @@ de_results_p05_Shrink_df <- data.frame(de_results_Shrink) %>% # without stringti
   arrange(padj) %>%
   left_join(Ha412_Ath_mappings)
 
-de_genes_noLFCthreshold <- subset(de_results_p05_Shrink_df, padj<.05) %>%
-  dplyr::select(Ha412_gene, Ath_gene)
 de_genes_dune_noLFCthreshold <- subset(de_results_p05_Shrink_df, log2FoldChange>0)
 de_genes_non.dune_noLFCthreshold <- subset(de_results_p05_Shrink_df, log2FoldChange<0)
 

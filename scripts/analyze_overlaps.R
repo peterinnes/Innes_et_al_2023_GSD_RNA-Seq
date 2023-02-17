@@ -3,29 +3,28 @@ library(eulerr)
 
 set1 <- read.table("analysis/GO_analysis/study_DE_genes_noLFCthreshold.txt")
 set2 <- read.table("analysis/GO_analysis/study_DS_rMATS_genes.txt")
-set3 <- read.table("analysis/diff_iso_out/HAN412HOv2_all_hits_bit100.signigicant_parents_diff_iso_results.2022-10-10.txt")
-set4 <- read.table("analysis/diff_iso_out/HAN412HOv2_all_hits_bit100.AS_genes.2022-10-10.txt")
+set3 <- read.table("analysis/diff_iso_out/2023-02-01/HAN412HOv2_all_hits_bit100.signigicant_parents_diff_iso_results.2023-02-05.txt")
+set4 <- read.table("analysis/diff_iso_out/2023-02-01/HAN412HOv2_all_hits_bit100.AS_genes.2023-02-05.txt")
 
 # top Ha412HO hits for each DS Trinity gene
-set5 <- read.table("analysis/diff_iso_out/HAN412HOv2_top_hits.signigicant_parents_diff_iso_results.2022-10-10.txt") %>%
+set5 <- read.table("analysis/diff_iso_out/2023-02-01/HAN412HOv2_top_hits.significant_parents_diff_iso_results.2023-02-05.txt") %>%
   dplyr::select(V2) %>%
   mutate(V2=gsub("mRNA","gene",V2))
 
 # reciprocal top hits
-set6 <- read.table("analysis/diff_iso_out/HAN412HOv2_reciprocal_top_hits.signigicant_parents_diff_iso_results.2022-10-10.txt") %>%
+set6 <- read.table("analysis/diff_iso_out/2023-02-01/HAN412HOv2_reciprocal_best_hits.significant_parents_diff_iso_results.2023-02-05.txt") %>%
   dplyr::select(V1) %>%
   mutate(V1=gsub("mRNA","gene",V1))
 
 length(base::intersect(set1$V1,set2$V1))
 
-# intersect b/w rMATS and diff_iso DS genes w/ relaxed BLAST (bit score > 100) is 315.
-length(intersect(set2$V1,set3$V1)) 
+# intersect b/w rMATS and diff_iso DS genes w/ relaxed BLAST (bit score > 100) is 289.
+length(intersect(set2$V1,set3$V1))
 
-# !!!! needs double checking !!!!
-# intersect b/w rMATS and diff_iso DS genes w/ "high confidence" BLAST (single top hit) is 92
+# intersect b/w rMATS and diff_iso DS genes w/ "high confidence" BLAST (single top Ha412HO hit for each Trinity gene) is 100
 length(intersect(set2$V1,set5$V2)) 
 
-#intersect b/w parents diff AS genes and rMATS AS genes is 4696
+#intersect b/w parents diff AS genes and rMATS AS genes is 4582
 length(intersect(set4$V1, unique(all_AS_events$GeneID)))
 
 write.table(intersect(set2$V1,set3$V1),
@@ -67,8 +66,10 @@ png("figures/venn_dia_DE_DS_blank.png", width = 6, height = 4.5, units = "in",
 d
 dev.off()
 
-# Euler diagrams for rMATS and Smith et al approach
-venn_dia_rMATS_diff_iso <- euler(c(rMATS=723, diff_iso=985, "rMATS&diff_iso"=315))
+# Euler diagrams for rMATS and Smith et al approach.
+# rMATS DS: 1038 - (overlap = 289) = 749
+# diff_iso DS: 1299 - 289 = 1010
+venn_dia_rMATS_diff_iso <- euler(c(rMATS=749, diff_iso=1010, "rMATS&diff_iso"=289))
 
 e <- eulerr:::plot.euler(venn_dia_rMATS_diff_iso,
                     labels = NA,
@@ -82,8 +83,8 @@ e
 dev.off()
 
 
-venn_dia_rMATS_diff_iso_all_AS <- euler(c(rMATS=1930, diff_iso=2074,
-                                          "rMATS&diff_iso"=4696))
+venn_dia_rMATS_diff_iso_all_AS <- euler(c(rMATS=2044, diff_iso=1425,
+                                          "rMATS&diff_iso"=4582))
 f <- eulerr:::plot.euler(venn_dia_rMATS_diff_iso_all_AS,
                          quantities = NA,
                          labels = NA,

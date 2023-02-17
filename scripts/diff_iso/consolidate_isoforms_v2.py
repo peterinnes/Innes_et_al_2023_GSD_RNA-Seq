@@ -138,7 +138,7 @@ for trans_iso in list_of_trans:
                 for iso in good_isos[old_gene][new_gene]:
                     os.system( "grep -w -A 1 " + iso + " " + trinity_path + " >> temp1.fa" )
                 # unindent; only want to run muscle once per gene
-                os.system( "muscle -in temp1.fa -out temp1.muscle 2> stderr.txt" )
+                os.system( "muscle -align temp1.fa -output temp1.muscle 2> stderr.txt" )
                 with open( "temp1.muscle" ) as infile:
                     seqs = {} # initialize empty sequence dictionary
                     seq = "" # initialize first sequence

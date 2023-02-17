@@ -205,7 +205,7 @@ inversion_regions <- read.table("analysis/inversions/inversion_regions.txt") %>%
   dplyr::select(V2,V3,V4,V9)
 names(inversion_regions) <- c("chrom", "start", "end", "name")
 inversion_regions <- inversion_regions %>%
-  filter(name %in% c("pet05.01", "pet09.01", "pet11.01", "pet17.01")) %>%
+  #filter(name %in% c("pet05.01", "pet09.01", "pet11.01", "pet17.01")) %>%
   left_join(cum_lengths[c(1,3)]) %>%
   mutate(inv_cumstart=start+cumstart, inv_cumend=end+cumstart)
 

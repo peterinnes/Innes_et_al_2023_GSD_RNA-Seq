@@ -131,7 +131,7 @@ all_AS_events_deltaPSI <- all_AS_events %>%
   mutate(chrom=gsub("chr", "", chrom)) %>%
   filter(ID %in% rownames(rmats_splice_df_filtered)) #filter out events with > 40% missingness
 
-# save as Rdata for use in PCA and plotting
+# save as Rdata for use in PCA and manhattan plot
 save(rmats_splice_df_filtered, all_AS_events_PSI, all_AS_events_deltaPSI, 
      file = "data2/Rdata/rmats_results_dfs.Rdata")
 
@@ -152,6 +152,16 @@ write.table(all_AS_events_deltaPSI,
 #    all_AS_events_deltaPSI$FDR[i] <- 1.134807e-14 #next smallest FDR
 #  }
 #}
+
+
+#### does the dune ecotype retain more introns? ####
+RI_dPSI <- filter(all_AS_events_deltaPSI, grepl("RI",ID) & FDR < .05)
+dim(RI_dPSI %>% filter(IncLevelDifference > 0))
+dim(RI_dPSI %>% filter(IncLevelDifference < 0))
+
+SE_dPSI <- filter(all_AS_events_deltaPSI, grepl("SE",ID) & FDR < .05)
+dim(SE_dPSI %>% filter(IncLevelDifference > 0))
+dim(SE_dPSI %>% filter(IncLevelDifference < 0))
 
 #### splicing manhattan plot ####
 # get the cumulative length of each chromosome
@@ -415,7 +425,7 @@ GLH17_coords <- read.table("analysis/GLH17_coordinates.txt") %>%
 GLH17_exon_skip_coords <- GLH17_coords[-c(16:18),]
 GLH17_exon_skip_coords[15,2] <- c("3063-4234")
 
-png("figures/GLH17_genemodels.png", width=4, height=5, units = "in", res = 300)
+pdf("figures/GLH17_genemodels.pdf", width=4, height=5)
 par(mfrow=c(2,1), mar = c(0,0,0,0))
 genemodel.plot(model=GLH17_coords, start=179781116, bpstop=179786239,
                orientation="reverse", xaxis=T)

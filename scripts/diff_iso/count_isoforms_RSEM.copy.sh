@@ -1,6 +1,6 @@
 transcriptome=~/gsd_RNA-seq/data2/transcriptome/all_sample_Trinity.cd-hit-est_99
 fqdir=~/gsd_RNA-seq/data/fastq/trimmed/
-outdir=~/gsd_RNA-seq/data2/RSEM_out_2-1-23/
+outdir=~/gsd_RNA-seq/data2/RSEM_out_23-2-1/
 
 #extract-transcript-to-gene-map-from-trinity $transcriptome.fasta $transcriptome.iso_gene_map.txt
 
@@ -29,4 +29,5 @@ ls *.fq.gz | while read fq; do
 		--bowtie2
 done
 
-rsem-generate-data-matrix `ls $outdir*.isoform*results* | sort -k2,2 -n  -t '_'| paste -sd' '` > ${outdir}isoform_counts_matrix.txt
+rsem-generate-data-matrix `ls $outdir*.isoform*results* | sort -V | paste -sd' '` > ${outdir}isoform_counts_matrix.txt
+rsem-generate-data-matrix `ls $outdir*genes.results | sort -V | paste -sd' '` > ${outdir}gene_counts_matrix.txt

@@ -7,11 +7,10 @@ library(compositions)
 
 #### read-in list of "good" alternatively spliced genes and isoforms,
 # from the parents_diff_v2.py pipeline 
-spliced_genes <- read.table("analysis/diff_iso_out/good_isoforms.post_consolidate_filtered.2022-10-10.txt",
-                            col.names = c("gene","isoforms")) %>%
-  separate(isoforms, into = paste0(1:10),
+spliced_genes <- read.table("analysis/diff_iso_out/2023-02-01/good_isoforms.post_consolidate_filtered.2023-02-05.txt", col.names = c("gene","isoforms")) %>%
+  separate(isoforms, into = paste0(1:12),
            sep = ",") %>%
-  pivot_longer(cols = 2:11, names_to = "isoform_num", values_to = "isoform_id") %>%
+  pivot_longer(cols = 2:13, names_to = "isoform_num", values_to = "isoform_id") %>%
   na.omit() %>%
   dplyr::select(gene,isoform_id)
 
@@ -22,11 +21,11 @@ head(spliced_genes)
 
 #### read-in and reformat TPM data
 
-isoform_tpm_df <- read.table("data2/RSEM_out/isoform_tpm_matrix.txt",
+isoform_tpm_df <- read.table("data2/RSEM_out_2023-02-01/isoform_tpm_matrix.txt",
                               header = T) %>%
   rename(isoform_id=transcript_id)
 
-isoform_clusters <- read.table("analysis/diff_iso_out/consolidated_isoform_clusters_with_rownames.txt",
+isoform_clusters <- read.table("analysis/diff_iso_out/2023-02-01/consolidated_isoform_clusters.with_rownames.2023-02-05.txt",
                                col.names=c("cluster","alleles")) %>%
   separate(alleles, into = paste0(1:5),
            sep = ",") %>%
@@ -41,7 +40,7 @@ isoform_tpm_mat_clusters <- left_join(isoform_clusters, isoform_tpm_mat) %>%
   group_by(cluster, gene) %>%
   summarise_if(is.numeric, sum) %>%
   relocate(gene,cluster) %>%
-  rename(cluster="isoform_id") #rename to match the no_clusters df
+  rename(isoform_id=cluster) #rename to match the no_clusters df
 
 # subset the TPM matrix for isoforms (transcripts) that do not have 
 # alternate alleles i.e. do not form a 'cluster' with other isoforms.
@@ -75,12 +74,16 @@ diff_iso_all_prop_df <- left_join(diff_iso_tpm_df_long, tpm_totals) %>%
   mutate(proportion_TPM = TPM / gene_total_TPM,
          ecotype = recode(ecotype, "dune" = "Dune", "non.dune" = "Non-dune"))
 
-# read-in list of genes with just two isoforms. subset to these genes moving forward
+# get list of genes with just two isoforms. subset to these genes moving forward
 # so that we can calculate Percent Spliced In more easily, and more easily compare to rMATS results
-Trinity_genes_with_two_isos <- read.table("analysis/diff_iso_out/genes_with_two_isoforms.txt",
+# this list was generated from the output of parents_diff_v2.py;
+# I took all genes that had a Ttest performed on them. Can't go off the 
+# 'spliced_genes' object here bc some of those 'isoforms' are alternative alleles 
+Trinity_genes_with_two_isos <- read.table("analysis/diff_iso_out/2023-02-01/genes_with_two_isoforms.txt",
                                           col.names = "gene")
 
-diff_iso_tpm_two_isos_df <- filter(diff_iso_tpm_df_long, gene %in% Trinity_genes_with_two_isos$gene)
+diff_iso_tpm_two_isos_df <- filter(diff_iso_tpm_df_long, gene %in%
+                                     Trinity_genes_with_two_isos$gene)
 
 # use simple "1" or "2" do distinguish the alternative isoforms, rather than
 # the actual isoform IDs. This will allow us to pivot_longer
@@ -92,7 +95,8 @@ diff_iso_prop_df <- left_join(diff_iso_tpm_two_isos_df, tpm_totals) %>%
 
 diff_iso_ilr_df <- dplyr::select(diff_iso_prop_df, gene, ecotype, sample,
                                  isoform_num, proportion_TPM) %>%
-  pivot_wider(names_from = isoform_num, values_from = proportion_TPM) %>% as.data.frame()
+  pivot_wider(names_from = isoform_num, values_from = proportion_TPM) %>%
+  as.data.frame()
 
 dune_ilr_df <- subset(diff_iso_ilr_df, ecotype=="dune") %>%
   na.omit()
@@ -141,7 +145,8 @@ diff_iso_splice_pca_df <- diff_iso_splice_df %>%
 for( i in 1:nrow(diff_iso_splice_pca_df) ){
   for( j in 1:ncol(diff_iso_splice_pca_df) ){
     if( is.na(diff_iso_splice_pca_df[i,j]) ){
-      diff_iso_splice_pca_df[i,j] <- rowMeans(diff_iso_splice_pca_df[i,], na.rm = T)
+      diff_iso_splice_pca_df[i,j] <- rowMeans(diff_iso_splice_pca_df[i,],
+                                              na.rm = T)
     }
   }
 }
@@ -155,7 +160,8 @@ diff_iso_splice_pve_df <- data.frame(summary(
                cols = 1:12) %>%
   mutate(PVE=100*PVE)
 
-diff_iso_splice_pca.site_sc <- data.frame(scores(diff_iso_splice_pca, choices = 1:2,
+diff_iso_splice_pca.site_sc <- data.frame(scores(diff_iso_splice_pca,
+                                                 choices = 1:2,
                                               scaling = 1, display = "wa")) %>%
   tibble::rownames_to_column("sample.id") %>%
   mutate(habitat=gsub("_.*","", sample.id))
@@ -196,7 +202,9 @@ library(ggridges)
 
 plot_GLH17_iso_props <- ggplot(diff_iso_all_prop_df %>%
                                  filter(gene=="TRINITY_DN6261_c0_g1.0"),
-                               aes(x = proportion_TPM, y = fct_rev(as.factor(isoform_id)), fill=ecotype)) +
+                               aes(x = proportion_TPM,
+                                   y = fct_rev(as.factor(isoform_id)),
+                                   fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -204,12 +212,16 @@ plot_GLH17_iso_props <- ggplot(diff_iso_all_prop_df %>%
   scale_fill_manual(values=c("gold2", "forestgreen")) +
   labs(y="", x="Isoform proportion")
 
-ggsave("figures/plot_GLH17_raw.png", plot = (plot_spacer() | plot_GLH17_iso_props) / (plot_GLH17_expr | plot_GLH17_psi),
+ggsave("figures/plot_GLH17_raw.png", plot = (plot_spacer() |
+                                               plot_GLH17_iso_props) /
+         (plot_GLH17_expr | plot_GLH17_psi),
        device = "png", height = 9, width = 12, dpi = 300, units = "in")
 
 plot_iso_props <-  ggplot(diff_iso_all_prop_df %>%
                                     filter(gene=="TRINITY_DN6473_c1_g1.0"),
-                                  aes(x = proportion_TPM, y = fct_rev(as.factor(isoform_id)), fill=ecotype)) +
+                                  aes(x = proportion_TPM,
+                                      y = fct_rev(as.factor(isoform_id)),
+                                      fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -221,7 +233,9 @@ plot_iso_props <-  ggplot(diff_iso_all_prop_df %>%
 
 plot_ABC1K14_iso_props <-  ggplot(diff_iso_all_prop_df %>%
                                     filter(gene=="TRINITY_DN45768_c0_g1.0"),
-                                  aes(x = proportion_TPM, y = fct_rev(as.factor(isoform_id)), fill=ecotype)) +
+                                  aes(x = proportion_TPM,
+                                      y = fct_rev(as.factor(isoform_id)),
+                                      fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -232,7 +246,9 @@ plot_ABC1K14_iso_props <-  ggplot(diff_iso_all_prop_df %>%
 #TRINITY_DN51265_c0_g1
 plot_LHCB5_iso_props <- ggplot(diff_iso_all_prop_df %>%
                                  filter(gene=="TRINITY_DN51265_c0_g1.0"),
-                               aes(x = proportion_TPM, y = fct_rev(as.factor(isoform_id)), fill=ecotype)) +
+                               aes(x = proportion_TPM,
+                                   y = fct_rev(as.factor(isoform_id)),
+                                   fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -243,7 +259,8 @@ plot_LHCB5_iso_props <- ggplot(diff_iso_all_prop_df %>%
 # rhodanese TRINITY_DN6462_c0_g1 Ha412HOChr10g0445261
 plot_DN6462_c0_g1_iso_props <- ggplot(diff_iso_all_prop_df %>%
                   filter(gene=="TRINITY_DN6462_c0_g1.0"),
-                aes(x = proportion_TPM, y = fct_rev(as.factor(isoform_id)), fill=ecotype)) +
+                aes(x = proportion_TPM, y = fct_rev(as.factor(isoform_id)),
+                    fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -251,10 +268,14 @@ plot_DN6462_c0_g1_iso_props <- ggplot(diff_iso_all_prop_df %>%
   scale_fill_manual(values=c("gold2", "forestgreen")) +
   labs(y="", x="Isoform proportion")
 
-# AT1G08520. Encodes the CHLD subunit of the Mg-chelatase enzyme involved in chlorophyll biosynthesis. Lines carrying recessive mutations of this locus are white and seedling lethal.
+# AT1G08520. Encodes the CHLD subunit of the Mg-chelatase enzyme involved
+# in chlorophyll biosynthesis. Lines carrying recessive mutations of this locus
+# are white and seedling lethal.
 plot_ALB1_iso_props <- ggplot(diff_iso_all_prop_df %>%
                                  filter(gene=="TRINITY_DN20639_c0_g1.0"),
-                               aes(x = proportion_TPM, y = fct_rev(as.factor(isoform_id)), fill=ecotype)) +
+                               aes(x = proportion_TPM,
+                                   y = fct_rev(as.factor(isoform_id)),
+                                   fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -266,7 +287,9 @@ plot_ALB1_iso_props <- ggplot(diff_iso_all_prop_df %>%
 # COR15A/LEA24? I think mislabeled on Arabidopsis.org? not going to highlight this one
 plot_COR15A_iso_props <- ggplot(diff_iso_all_prop_df %>%
                                filter(gene=="TRINITY_DN11567_c1_g1.0"),
-                               aes(x = proportion_TPM, y = fct_rev(as.factor(isoform_id)), fill=ecotype)) +
+                               aes(x = proportion_TPM,
+                                   y = fct_rev(as.factor(isoform_id)),
+                                   fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -276,7 +299,8 @@ plot_COR15A_iso_props <- ggplot(diff_iso_all_prop_df %>%
 
 plot_SCPL13_iso_props <- ggplot(diff_iso_all_prop_df %>%
                                   filter(gene=="TRINITY_DN11324_c1_g1.0"),
-                                aes(x = proportion_TPM, y = isoform_id, fill=ecotype)) +
+                                aes(x = proportion_TPM,
+                                    y = isoform_id, fill=ecotype)) +
   geom_density_ridges(scale = 1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -286,7 +310,8 @@ plot_SCPL13_iso_props <- ggplot(diff_iso_all_prop_df %>%
 
 plot_CESA6_iso_props <- ggplot(diff_iso_all_prop_df %>%
                                  filter(gene=="TRINITY_DN3311_c0_g1.0"),
-                               aes(x = proportion_TPM, y = isoform_id, fill=ecotype)) +
+                               aes(x = proportion_TPM,
+                                   y = isoform_id, fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -297,7 +322,8 @@ plot_CESA6_iso_props <- ggplot(diff_iso_all_prop_df %>%
 #TRINITY_DN22648_c0_g1; EMB2004; AT1G10510
 plot_EMB2004_iso_props <- ggplot(diff_iso_all_prop_df %>%
                                  filter(gene=="TRINITY_DN22648_c0_g1.0"),
-                               aes(x = proportion_TPM, y = isoform_id, fill=ecotype)) +
+                               aes(x = proportion_TPM,
+                                   y = isoform_id, fill=ecotype)) +
   geom_density_ridges(scale=1, alpha = .5) +
   facet_wrap(~ecotype) +
   theme_bw(base_size=18) +
@@ -306,7 +332,8 @@ plot_EMB2004_iso_props <- ggplot(diff_iso_all_prop_df %>%
   labs(y="", x="Isoform proportion")
 
 #### trying just PSI instead of ILR ####
-tmp <- dplyr::select(diff_iso_ilr_df, gene, sample, iso_1) %>% pivot_wider(names_from = sample, values_from = iso_1) %>%
+tmp <- dplyr::select(diff_iso_ilr_df, gene, sample, iso_1) %>%
+  pivot_wider(names_from = sample, values_from = iso_1) %>%
   dplyr::select(!gene) %>%
   na.omit()
 

@@ -167,7 +167,7 @@ for old_gene in good_isos:
             if found == True:
                 count_isos_in_parents += 1
         #print("allele clusters found in", new_gene, "across all samples:", count_isos_in_parents)
-        print(new_gene,"isoform proportions:", props)      
+        #print(new_gene,"isoform proportions:", props)      
 
 
         ##### Isometric Log Ratio  transform #####
@@ -176,7 +176,7 @@ for old_gene in good_isos:
             if 1 not in props[parent]: #hacky fix to get around proportions of 1. 
                 ilrs[parent] = ilr(props[parent]) #this breaks if 'props' contains proportions of 1. but I don't think we should consider proportions of 1, bc then splicing isn't occuring? 
         ilrs = np.array(ilrs)
-        print(new_gene, "isometric log raio transform of proportions:", ilrs)
+        #print(new_gene, "isometric log raio transform of proportions:", ilrs)
 
 
         ##### test #####
@@ -189,7 +189,7 @@ for old_gene in good_isos:
                     manova = MANOVA(endog=ilrs, exog=pops)
                     #print(manova.mv_test())
                     manova_pval = manova.mv_test().results['x0']['stat'].values[0,4]
-                    #print(new_gene, manova_pval) #print gene name and pvalue from manova
+                    print(new_gene, manova_pval) #print gene name and pvalue from manova
                     #if manova_pval < .05:
                     #    print(new_gene,"MANOVA result:", manova_pval) 
                 #else: 
@@ -197,7 +197,7 @@ for old_gene in good_isos:
 
             else: #if just one ILR column, use t.test / anova
                 t = stats.ttest_ind([ilrs[0], ilrs[1], ilrs[2], ilrs[3], ilrs[4], ilrs[5], ilrs[6], ilrs[7], ilrs[8], ilrs[9], ilrs[10], ilrs[11]], [ilrs[12], ilrs[13], ilrs[14], ilrs[15], ilrs[16], ilrs[17], ilrs[18], ilrs[19], ilrs[20], ilrs[21], ilrs[22], ilrs[23]])
-                #print(new_gene, t) #print t-test output so we can tell which genes only have two isoforms
+                print(new_gene, t) #print t-test output so we can tell which genes only have two isoforms
                 #print(new_gene, t.pvalue) #print just the gene name and t-test pvalue
                 #if t.pvalue < .05: #print just significant t-test results
                 #    print(new_gene, t)
