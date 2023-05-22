@@ -1,4 +1,4 @@
-#repl_python()
+repl_python()
 import allel
 import pandas as pd
 import numpy as np

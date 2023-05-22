@@ -406,35 +406,6 @@ plot_SCPL13_psi <- ggplot(data=PSI_df %>% filter(ID=="RI_22481"),
   scale_shape_manual(values=c(24,21)) +
   labs(x="Ecotype")
   
-
-#### plot gene splicing models ####
-library(genemodel)
-# I got the coordinates from the gff file
-# but had to manually add intron positions and also delete the 'gene' and 'mRNA'
-# annotations and instead add an 'ORF' annotation that gives coordinates from
-# start and end of the CDS regions
-
-GLH17_coords <- read.table("analysis/GLH17_coordinates.txt") %>%
-  rename(chrom=V1, type=V2, start=V3, end=V4) %>%
-  mutate(start=start-179781115, end=end-179781115) %>%
-  mutate(type=recode(type, CDS="coding_region", three_prime_UTR="3' utr",
-                     five_prime_UTR="5' utr"),
-         coordinates=paste0(start,"-",end)) %>%
-  dplyr::select(type,coordinates)
-
-GLH17_exon_skip_coords <- GLH17_coords[-c(16:18),]
-GLH17_exon_skip_coords[15,2] <- c("3063-4234")
-
-pdf("figures/GLH17_genemodels.pdf", width=4, height=5)
-par(mfrow=c(2,1), mar = c(0,0,0,0))
-genemodel.plot(model=GLH17_coords, start=179781116, bpstop=179786239,
-               orientation="reverse", xaxis=T)
-genemodel.plot(model=GLH17_exon_skip_coords, start=179781116, bpstop=179786239,
-               orientation="reverse", xaxis=F)
-
-dev.off()
-
-
 #### compare fraction of DE–DS overlap genes that are IR events, ####
 # compared to the number of IR events in non-overlapping DS genes.
 

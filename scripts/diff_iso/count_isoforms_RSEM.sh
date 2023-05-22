@@ -1,14 +1,14 @@
 transcriptome=~/gsd_RNA-seq/data2/transcriptome/all_sample_Trinity.cd-hit-est_99
 fqdir=~/gsd_RNA-seq/data/fastq/trimmed/
-outdir=~/gsd_RNA-seq/data2/RSEM_out/
+outdir=~/gsd_RNA-seq/data2/RSEM_out_23-2-1/
 
-extract-transcript-to-gene-map-from-trinity $transcriptome.fasta $transcriptome.iso_gene_map.txt
+#extract-transcript-to-gene-map-from-trinity $transcriptome.fasta $transcriptome.iso_gene_map.txt
 
-rsem-prepare-reference \
-    --bowtie2 \
-    --transcript-to-gene-map $transcriptome.iso_gene_map.txt \
-    $transcriptome.fasta \
-    $transcriptome
+#rsem-prepare-reference \
+#    --bowtie2 \
+#    --transcript-to-gene-map $transcriptome.iso_gene_map.txt \
+#    $transcriptome.fasta \
+#    $transcriptome
 
 cd $fqdir
 ls *.fq.gz | while read fq; do
@@ -24,11 +24,10 @@ ls *.fq.gz | while read fq; do
         $fq \
         $transcriptome \
         $outdir$sample_name \
-        --num-threads 12 \
+        --num-threads 20 \
 		--strandedness reverse \
-		--bowtie2 \
-        --fragment-length-mean 180 \
-        --fragment-length-sd 20
+		--bowtie2
 done
 
-rsem-generate-data-matrix `ls $outdir*.isoform*results* | sort -k2,2 -n  -t '_'| paste -sd' '` > ${outdir}isoform_counts_matrix.txt
+rsem-generate-data-matrix `ls $outdir*.isoform*results* | sort -V | paste -sd' '` > ${outdir}isoform_counts_matrix.txt
+rsem-generate-data-matrix `ls $outdir*genes.results | sort -V | paste -sd' '` > ${outdir}gene_counts_matrix.txt

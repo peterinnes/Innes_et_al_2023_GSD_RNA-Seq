@@ -569,8 +569,36 @@ ggsave("figures/plot_GO_intersect_raw.pdf", plot = GO_intersect_dotplot,
        device = "pdf", width = 87.5, dpi = 300, units = "mm")
 
 #### Figure 5. GLH17 ####
+library(genemodel)
 load("data2/Rdata/rmats_results_dfs.Rdata") #from analyze_splicing_rMATS.R
 load("data2/Rdata/DESeq2_normalized_counts.Rdata") #from analyze differential splicing
+
+# Panel A (isoform models)
+# I got the coordinates from the gff file
+# but had to manually add intron positions and also delete the 'gene' and 'mRNA'
+# annotations and instead add an 'ORF' annotation that gives coordinates from
+# start and end of the CDS regions
+GLH17_coords <- read.table("analysis/GLH17_coordinates.txt") %>%
+  rename(chrom=V1, type=V2, end=V3, start=V4) %>%
+  mutate(start=-(start-179786238), end=-(end-179786238)) %>%
+  mutate(type=recode(type, CDS="coding_region", three_prime_UTR="3' utr",
+                     five_prime_UTR="5' utr"),
+         coordinates=paste0(start,"-",end)) %>%
+  dplyr::select(type,coordinates)
+GLH17_coords[c(22:23),2] <- "1-221" #get rid of negative sign
+
+GLH17_exon_skip_coords <- GLH17_coords[-c(16:18),]
+GLH17_exon_skip_coords[15,2] <- c("889-2060")
+
+pdf("figures/GLH17_genemodels.pdf", width=4, height=5)
+par(mfrow=c(2,1), mar = c(0,0,0,0))
+genemodel.plot(model=GLH17_coords, start=179781116, bpstop=179786239,
+               orientation="reverse", xaxis=T)
+genemodel.plot(model=GLH17_exon_skip_coords, start=179781116, bpstop=179786239,
+               orientation="reverse", xaxis=F)
+
+dev.off()
+
 
 dune_fq <- c("Kane-602-10_S8_R1_001.trimmed.fq.gz",
              "Kane-602-11_S9_R1_001.trimmed.fq.gz",
@@ -621,6 +649,10 @@ plot_GLH17_expr <- ggplot(data=norm_expr_df %>%
   scale_shape_manual(values=c(24,21)) +
   labs(x="Ecotype", y="Norm. expression")
 
+
 plot_GLH17_expr + plot_GLH17_psi
 ggsave(filename = "figures/plot_GLH17_raw.pdf", plot = plot_GLH17_expr + plot_GLH17_psi,
        device = "pdf", dpi = 300, width = 87.5, height = 65.625, units = "mm")
+
+
+         

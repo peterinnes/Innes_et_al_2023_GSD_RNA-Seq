@@ -25,8 +25,14 @@ snpgdsVCF2GDS(vcf_pruned.fn, "analysis/pca/vcf_pruned.gds")
 snpgdsSummary("analysis/pca/vcf_pruned.gds")
 
 # habitat information from text file
-pop_code <- scan("analysis/pca/pops.txt", what=character()) # "pops.txt" should be a single line with "habitat" i.e. ecotype noted for each sample, in quotes, tab separated. order needs to match order of samples in the vcf.
-habitat_pop_sample <- read.table("analysis/pca/habitat_pop_sample.txt", header=T) #this file also has the specific sampling site aka population, 'pop' for each sample
+# "pops.txt" should be a single line with "habitat" i.e. ecotype noted for
+# each sample, in quotes, tab separated. order needs to match order of samples
+# in the vcf.
+pop_code <- scan("analysis/pca/pops.txt", what=character())
+
+# habitat_pop_sample.txt has the specific sampling site aka population,
+#'pop' for each sample
+habitat_pop_sample <- read.table("analysis/pca/habitat_pop_sample.txt", header=T) 
 
 # open the GDS file
 genofile <- snpgdsOpen("analysis/pca/vcf.gds")
@@ -58,17 +64,15 @@ snpgdsClose(genofile)
 
 # Make a data.frame
 snp_pca_df <- data.frame(sample.id = snp_pca$sample.id,
-                  habitat = factor(pop_code)[match(snp_pca$sample.id, sample.id)],
+                  ecotype = factor(pop_code)[match(snp_pca$sample.id, sample.id)],
                   EV1 = snp_pca$eigenvect[,1],    # the first eigenvector
                   EV2 = snp_pca$eigenvect[,2],    # the second eigenvector
                   EV3 = snp_pca$eigenvect[,3],
                   EV4 = snp_pca$eigenvect[,4],
                   EV5 = snp_pca$eigenvect[,5],
-                  stringsAsFactors = FALSE)
+                  stringsAsFactors = FALSE) %>%
+  left_join(habitat_pop_sample)
 
-snp_pca_df <- left_join(snp_pca_df, habitat_pop_sample) %>%
-  rename(habitat="ecotype")
-#head(snp_pca_df)
 
 # variance proportion (% variance explained)
 snp_pve_df <- data.frame(pc = 1:24, pve = snp_pca$varprop*100)

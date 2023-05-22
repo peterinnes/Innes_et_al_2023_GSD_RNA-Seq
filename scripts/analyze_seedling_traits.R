@@ -2,13 +2,13 @@ library(ggplot2)
 library(patchwork)
 
 #### read-in phenotype data ####
-a <- read.csv("data2/GSDgreenhouseExpt2018_Data_sheet1.csv", header = T) %>%
+a <- read.csv("data2/seedling_data/GSDgreenhouseExpt2018_Data_sheet1.csv", header = T) %>%
   dplyr::select(HABITAT, POPULATION, plant_number, germinated, planted, GERM_DATE, ACHENE_LEN,
                 HYPO_LEN, ROOT_LEN, HEIGHT, PLANT_MASS, LEAF_num, LEAF_MASS_WET,
                 LEAF_MASS_DRY, RNA_EXT, COMMENTS)
 a$LEAF_num[160] <- 8 #fixing data entry error (leaf number entered as 18, should be 8)
 
-b <- read.csv("data2/GSDgreenhouseExpt2018_Data_sheet2.csv", header = T) %>%
+b <- read.csv("data2/seedling_data/GSDgreenhouseExpt2018_Data_sheet2.csv", header = T) %>%
   dplyr::select(HABITAT, POPULATION, plant_number, code_number, RNA_SEQ)
 
 phenotype_data <- full_join(a,b) %>%

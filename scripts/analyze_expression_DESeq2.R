@@ -166,7 +166,7 @@ de_genes_non.dune_noLFCthreshold <- subset(de_results_p05_Shrink_df, log2FoldCha
 save(de_results_Shrink, file = "data2/Rdata/DESeq2_results_Shrink.Rdata")
 write.table(de_results_Shrink_df,
             file="analysis/DESeq2/DESeq2_results_shrinkage.tsv", sep = '\t',
-            quote = F, row.names = F)
+            quote = F, row.names = F) # Extended Data S1
 write.table(de_results_p05_Shrink_df,
             file = "analysis/DESeq2/DE_genes_noLFCthreshold_p05_Shrink.tsv",
             sep = '\t', quote = F, row.names = F)
