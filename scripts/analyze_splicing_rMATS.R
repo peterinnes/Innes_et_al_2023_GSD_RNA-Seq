@@ -35,21 +35,19 @@ ggplot(data = rmatsout_summary %>% subset(Category=="SignificantEventsJCEC"),
   theme_classic() +
   theme(text = element_text(size=24),
         axis.text = element_text(size=18))
-  
-  
 
 #### merge all the results files together ####
 # add splice-type prefix to all the event IDs so we can tell different event types apart after we merge them all together
-SE_events <- read.table('analysis/rMATS/results_2022-07-14/SE.MATS.JCEC.txt', header = T) %>%
-  mutate(ID = gsub("^", "SE_", ID))
-A5SS_events <- read.table('analysis/rMATS/results_2022-07-14/A5SS.MATS.JCEC.txt', header = T) %>%
-  mutate(ID = gsub("^", "A5SS_", ID))
-A3SS_events <- read.table('analysis/rMATS/results_2022-07-14/A3SS.MATS.JCEC.txt', header = T) %>% 
-  mutate(ID = gsub("^", "A3SS_", ID))
-MXE_events <- read.table('analysis/rMATS/results_2022-07-14/MXE.MATS.JCEC.txt', header = T) %>%
-  mutate(ID = gsub("^", "MXE_", ID))
-RI_events <- read.table('analysis/rMATS/results_2022-07-14/RI.MATS.JCEC.txt', header = T) %>% 
-  mutate(ID = gsub("^", "RI_", ID))
+SE_events <- read.table('analysis/rMATS/results_2022-07-14/SE.MATS.JCEC.txt',
+                        header = T) %>% mutate(ID = gsub("^", "SE_", ID))
+A5SS_events <- read.table('analysis/rMATS/results_2022-07-14/A5SS.MATS.JCEC.txt',
+                          header = T) %>% mutate(ID = gsub("^", "A5SS_", ID))
+A3SS_events <- read.table('analysis/rMATS/results_2022-07-14/A3SS.MATS.JCEC.txt',
+                          header = T) %>% mutate(ID = gsub("^", "A3SS_", ID))
+MXE_events <- read.table('analysis/rMATS/results_2022-07-14/MXE.MATS.JCEC.txt',
+                         header = T) %>% mutate(ID = gsub("^", "MXE_", ID))
+RI_events <- read.table('analysis/rMATS/results_2022-07-14/RI.MATS.JCEC.txt',
+                        header = T) %>% mutate(ID = gsub("^", "RI_", ID))
 
 # count number of significant intron retention splicing events, Should match the summary
 RI_events |>
@@ -57,14 +55,120 @@ RI_events |>
   #subset(abs(IncLevelDifference) > .05) |>
   dim() 
 
-# combine all the results files into one file,
-# for use in PCA of the Inclusion Levels, in the script pca.R
+## attempting to look at novel Splice Sites
+#RI_novelSS <- read.table('analysis/rMATS/results_2022-07-14/fromGTF.novelSpliceSite.RI.txt',
+#                         header = T) %>% mutate(ID = gsub("^", "RI_", ID))
+#SE_novelSS <- read.table('analysis/rMATS/results_2022-07-14/fromGTF.novelSpliceSite.SE.txt',
+#                         header = T) %>% mutate(ID = gsub("^", "SE_", ID))
+#A5SS_novelSS <- read.table('analysis/rMATS/results_2022-07-14/fromGTF.novelSpliceSite.A5SS.txt',
+#                           header = T) %>% mutate(ID = gsub("^", "A5SS_", ID))
+#A3SS_novelSS <- read.table('analysis/rMATS/results_2022-07-14/fromGTF.novelSpliceSite.A3SS.txt',
+#                           header = T) %>% mutate(ID = gsub("^", "A3SS_", ID))
+#MXE_novelSS <- read.table('analysis/rMATS/results_2022-07-14/fromGTF.novelSpliceSite.MXE.txt',
+#                           header = T) %>% mutate(ID = gsub("^", "MXE_", ID))
+#
+## fraction of events that are based on novel splice sites
+#inner_join(SE_events, SE_novelSS) %>% nrow() / nrow(SE_events)
+#inner_join(A5SS_events, A5SS_novelSS) %>% nrow() / nrow(A5SS_events)
+#inner_join(A3SS_events, A3SS_novelSS) %>% nrow() / nrow(A3SS_events)
+#inner_join(RI_events, RI_novelSS) %>% nrow() / nrow(RI_events)
+#inner_join(MXE_events, MXE_novelSS) %>% nrow() / nrow(MXE_events)
+#
+## get postiions of novel splice site regions, following SnpEff +8/-3 range for
+## definiing a splice site ¨region¨ i.e. a small window encompassing a splice site. 
+## if plus strand, "region 1" is the acceptor; "region 2" is donor
+## if minus strand, "region 2" is the acceptor; "region 1" is donor
+#SE_novel_splice_regions <- inner_join(SE_events, SE_novelSS) %>%
+#  dplyr::select(ID, chr, GeneID, strand, exonStart_0base, exonEnd) %>%
+#  mutate(splice_region_1_start = exonStart_0base - 8,
+#         splice_region_1_end = exonStart_0base + 3,
+#         splice_region_2_start = exonEnd - 3,
+#         splice_region_2_end = exonEnd + 8)
+#
+#A5SS_novel_splice_regions <- inner_join(A5SS_events, A5SS_novelSS) %>% 
+#  dplyr::select(ID, chr, GeneID, strand, longExonStart_0base, longExonEnd) %>%
+#  mutate(splice_region_1_start = longExonStart_0base - 8,
+#         splice_region_1_end = longExonStart_0base + 3,
+#         splice_region_2_start = longExonEnd - 3,
+#         splice_region_2_end = longExonEnd + 8)
+#
+#A3SS_novel_splice_regions <- inner_join(A3SS_events, A3SS_novelSS) %>% 
+#  dplyr::select(ID, chr, GeneID, strand, longExonStart_0base, longExonEnd) %>%
+#  mutate(splice_region_1_start = longExonStart_0base - 8,
+#         splice_region_1_end = longExonStart_0base + 3,
+#         splice_region_2_start = longExonEnd - 3,
+#         splice_region_2_end = longExonEnd + 8)
+#
+#MXE_novel_splice_regions <- inner_join(MXE_events, MXE_novelSS) %>%
+#  dplyr::select(ID, chr, GeneID, strand,
+#                X1stExonStart_0base, X1stExonEnd,
+#                X2ndExonStart_0base, X2ndExonEnd) %>%
+#  mutate(splice_region_1_start = X1stExonStart_0base - 8,
+#         splice_region_1_end = X1stExonStart_0base + 3,
+#         splice_region_2_start = X1stExonEnd - 3,
+#         splice_region_2_end = X1stExonEnd + 8,
+#         splice_region_3_start = X2ndExonStart_0base - 8,
+#         splice_region_3_end = X2ndExonStart_0base + 3,
+#         splice_region_4_start = X2ndExonEnd - 3,
+#         splice_region_4_end = X2ndExonEnd + 8)
+#
+## for intron retention, mutations within the retained intron might cause RI
+## set the window to be the intron that is retained.
+#RI_novel_splice_regions <- inner_join(RI_events, RI_novelSS) %>%
+#  dplyr::select(ID, chr, GeneID, strand, upstreamEE, downstreamES) %>%
+#  mutate(splice_region_1_start=upstreamEE-3,
+#         splice_region_1_end=downstreamES+3)
+#
+## combine all novel splice regions
+#novel_splice_regions <- full_join(SE_novel_splice_regions,
+#                                  RI_novel_splice_regions) %>%
+#  full_join(MXE_novel_splice_regions) %>%
+#  full_join(A5SS_novel_splice_regions) %>%
+#  full_join(A3SS_novel_splice_regions) %>%
+#  dplyr::select(chr, GeneID, ID, strand,
+#                splice_region_1_start, splice_region_1_end,
+#                splice_region_2_start, splice_region_2_end,
+#                splice_region_3_start, splice_region_3_end,
+#                splice_region_4_start, splice_region_4_end)
+#
+#region_1 <- novel_splice_regions %>%
+#  dplyr::select(chr, GeneID, ID, splice_region_1_start, splice_region_1_end) %>%
+#  dplyr::rename(start=splice_region_1_start, end=splice_region_1_end) %>%
+#  mutate(region="region_1")
+#
+#region_2 <- novel_splice_regions %>%
+#  dplyr::select(chr, GeneID, ID, splice_region_2_start, splice_region_2_end) %>%
+#  dplyr::rename(start=splice_region_2_start, end=splice_region_2_end) %>%
+#  mutate(region="region_2") %>%
+#  na.omit()
+#
+#region_3 <- novel_splice_regions %>%
+#  dplyr::select(chr, GeneID, ID, splice_region_3_start, splice_region_3_end) %>%
+#  dplyr::rename(start=splice_region_3_start, end=splice_region_3_end) %>%
+#  mutate(region="region_3") %>%
+#  na.omit()
+#
+#region_4 <- novel_splice_regions %>%
+#  dplyr::select(chr, GeneID, ID, splice_region_4_start, splice_region_4_end) %>%
+#  dplyr::rename(start=splice_region_4_start, end=splice_region_4_end) %>%
+#  mutate(region="region_4") %>%
+#  na.omit()
+#
+#novel_splice_regions <- full_join(region_1, region_2) %>%
+#  full_join(region_3) %>%
+#  full_join(region_4) %>% dplyr::select(chr, start, end, GeneID, EventID=ID, region)
+#
+#write.table(novel_splice_regions,
+#            file = "analysis/snpEff/rMATS_novel_splice_regions.txt",
+#            sep = "\t", quote = F, row.names = F)
+
+# combine all the events results files into one file,
 all_AS_events <- full_join(SE_events, RI_events) %>%
   full_join(MXE_events) %>%
   full_join(A5SS_events) %>% 
   full_join(A3SS_events) %>%
   arrange(FDR) %>%
-  left_join(Ha412_Ath_mappings %>% rename(GeneID=Ha412_gene)) %>%
+  left_join(Ha412_Ath_mappings %>% dplyr::rename(GeneID=Ha412_gene)) %>%
   relocate(ID,GeneID, Ath_gene)
 
 # split apart valules for individual plants in the IncLevel (PSI) columns 
@@ -96,10 +200,11 @@ all_AS_events_PSI <- all_AS_events %>%
                                "Kane-602-30_S24_R1_001.trimmed.fq.gz"), sep = ",")
 
 # filter results for missingness (remove events with > 40% missingness)
-tmp <- all_AS_events_PSI[,4:27] %>%
-  lapply(as.numeric) %>% as.data.frame() #%>% na.omit()
+# for use in PCA of the Inclusion Levels, in the script pca.R
+all_AS_events_PSI[,4:27] <- all_AS_events_PSI[,4:27] %>%
+  lapply(as.numeric) %>% as.data.frame()
+tmp <- all_AS_events_PSI[,4:27]
 rownames(tmp) <- all_AS_events_PSI$ID
-
 rmats_splice_df_filtered <- tmp %>%
   mutate(missing_perc = rowMeans(is.na(tmp))) %>%
   filter(missing_perc<.4) %>%
@@ -109,7 +214,8 @@ rmats_splice_df_filtered <- tmp %>%
 for( i in 1:nrow(rmats_splice_df_filtered) ){
   for( j in 1:ncol(rmats_splice_df_filtered) ){
     if( is.na(rmats_splice_df_filtered[i,j]) ){
-      rmats_splice_df_filtered[i,j] <- rowMeans(rmats_splice_df_filtered[i,], na.rm = T)
+      rmats_splice_df_filtered[i,j] <- rowMeans(rmats_splice_df_filtered[i,],
+                                                na.rm = T)
     }
   }
 }
@@ -428,13 +534,13 @@ tmp2 <- rmatsout_summary %>% subset(Category=="SignificantEventsJCEC")
 sum(tmp2$Count)
 tmp2
 
-#### looking at the genes in chr11 peak ####
-#chr11_deltaPSI <- all_AS_events_deltaPSI %>% 
-#  subset(chr=="chrHa412HOChr11") %>% 
-#  subset(FDR < .05) %>% 
-#  #subset(abs(IncLevelDifference) > 0.15) %>%
-#  dplyr::select(ID, GeneID, IncLevelDifference, FDR)
-#
+#### looking at the genes in chr11 inversion ####
+chr11_deltaPSI <- all_AS_events_deltaPSI %>% 
+  subset(chr=="chrHa412HOChr11") %>% 
+  subset(FDR < .05) %>% 
+  subset(abs(IncLevelDifference) > 0.15) %>%
+  dplyr::select(ID, GeneID, IncLevelDifference, FDR)
+
 #chr11_deltaPSI
 #
 ## Ha412_Ath_mappings is from merge_gene_names_and_GO_terms.R

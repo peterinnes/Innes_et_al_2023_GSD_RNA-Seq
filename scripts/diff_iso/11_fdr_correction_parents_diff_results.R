@@ -2,6 +2,7 @@
 library(dplyr)
 diff_iso_results <- read.table("analysis/diff_iso_out/2023-02-01/parents_diff_iso_results.2023-02-04.txt",
                                sep = ' ', col.names = c("Trinity_gene", "pval"))
+
 diff_iso_results$fdr <- p.adjust(diff_iso_results$pval, method="fdr",
                                  n = nrow(diff_iso_results)) 
 

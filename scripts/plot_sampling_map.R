@@ -1,16 +1,13 @@
 #### mapping locations of the GSD populations ####
-install.packages("usmap")
 library(usmap)
-install.packages("ggmap")
 library(ggmap)
-devtools::install_github('oswaldosantos/ggsn')
-library(ggsn) #for scalebar
+library(ggsn) #for scalebar devtools::install_github('oswaldosantos/ggsn')
 library(tigris)
 library(sf)
 library(raster)
 
 coordinates <- read.csv("GSD_RNA-seq_population_coords.csv", header=T) %>%
-  rename(long=lon)
+  dplyr::rename(long=lon)
 coordinates$Ecotype <- c("Non-dune", "Non-dune", "Non-dune", "Dune", "Dune", "Dune")
 
 bbox <- extent(c(range(coordinates$long)+c(-1,1)*0.05,range(coordinates$lat)+c(-1,1)*0.05))
@@ -26,14 +23,15 @@ scale_bar_coords <- data.frame(long=c(-105.5,-105.6125), lat=c(37.7, 37.775))
 
 save(map, coordinates, scale_bar_coords,
      file = "data2/Rdata/gsd_sampling_map.Rdata")
+load("data2/Rdata/gsd_sampling_map.Rdata")
 
 gsd_sampling_map <- ggmap(map) +
   geom_point(data = coordinates, mapping = aes(x=long, y=lat,
                                                shape=Ecotype, fill=Ecotype),
-             size=4) +
+             size=2, stroke=.5) +
   scale_shape_manual(values = c(24,21)) +
   scale_fill_manual(values=c("gold2", "forestgreen")) +
-  theme_bw(base_size=16) +
+  theme_bw(base_size=8) +
   theme(legend.key = element_rect(fill=NA),
         #legend.title = element_blank(),
         legend.position = "bottom",#blank",
@@ -46,7 +44,7 @@ gsd_sampling_map <- ggmap(map) +
         #axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
   scale_x_continuous(expand=c(0,0), breaks = c(-105.6, -105.55, -105.5)) +
   scale_y_continuous(expand=c(0,0), breaks = c(37.65, 37.7, 37.75)) +
-  labs(x="Long", y="Lat") +
+  labs(x="Longitude", y="Latitude") +
   ggsn::scalebar(data = scale_bar_coords, location = "bottomleft", transform = T,
                  dist = 2, dist_unit = "km", height = .02,
                  st.dist = .05, box.fill = c("black","white"))

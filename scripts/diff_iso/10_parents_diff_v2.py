@@ -197,8 +197,8 @@ for old_gene in good_isos:
 
             else: #if just one ILR column, use t.test / anova
                 t = stats.ttest_ind([ilrs[0], ilrs[1], ilrs[2], ilrs[3], ilrs[4], ilrs[5], ilrs[6], ilrs[7], ilrs[8], ilrs[9], ilrs[10], ilrs[11]], [ilrs[12], ilrs[13], ilrs[14], ilrs[15], ilrs[16], ilrs[17], ilrs[18], ilrs[19], ilrs[20], ilrs[21], ilrs[22], ilrs[23]])
-                print(new_gene, t) #print t-test output so we can tell which genes only have two isoforms
-                #print(new_gene, t.pvalue) #print just the gene name and t-test pvalue
+                #print(new_gene, t) #print t-test output so we can tell which genes only have two isoforms
+                print(new_gene, t.pvalue) #print just the gene name and t-test pvalue
                 #if t.pvalue < .05: #print just significant t-test results
                 #    print(new_gene, t)
 

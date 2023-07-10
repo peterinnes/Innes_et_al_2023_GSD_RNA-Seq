@@ -15,7 +15,7 @@ inv_regions <- read.table("inversion_regions.txt",
   dplyr::select(region_code, chr, start, end)
 
 
-# Read in the annotations and filter for only expressed genes)
+# Read in the annotations and filter for only expressed genes
 gff <- data.frame(rtracklayer::import("data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.gff3")) %>%
   rename(chrom="seqnames", Ha412_gene="ID")
 

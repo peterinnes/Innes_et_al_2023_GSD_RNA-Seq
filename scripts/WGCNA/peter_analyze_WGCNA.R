@@ -16,32 +16,56 @@ counts <- read.table("analysis/DESeq2/htseq-count_out/htseq-count_results.2022-6
 names(counts) <- paste(sample_table_deseq2$habitat,"_",
                        sample_table_deseq2$sample_no, sep = "")
 
-# filter the raw counts 
+# filter the raw counts, mean counts per sample
 keep_wgcna <- which(rowMeans(as.matrix(counts)) >= 1) #same prefilter as for DESeq2
 keep_stringent_wgcna <- which(rowMeans(as.matrix(counts)) >= 3) #more stringent
-#keep_wgcna <- which((rowMedians(as.matrix(counts)) >= 1))
-#keep_wgcna <- which((rowSums(as.matrix(counts)) >= 24))
+keep_vstringent_wgcna <- which(rowMeans(as.matrix(counts)) >= 10) #very stringent, for iterWGCNA
 
 filtered_counts_wgcna <- counts[keep_wgcna,] %>%
   head(-3) #remove the last three rows, "__no_feature", "__ambiguous" "__alignment_not_unique"
-  
 filtered_stringent_counts_wgcna <- counts[keep_stringent_wgcna,] %>%
   head(-3)
-
+filtered_vstringent_counts_wgcna <- counts[keep_vstringent_wgcna,] %>%
+  head(-3) %>% 
+  mutate(d_n_zero=rowSums(dplyr::select(.,starts_with("dune")) == 0),
+         nd_n_zero=rowSums(dplyr::select(.,starts_with("non-dune")) == 0)) %>%
+  filter(d_n_zero <= 6 & nd_n_zero <= 6) %>%
+  dplyr::select(!c(d_n_zero, nd_n_zero))
+  
 dim(filtered_counts_wgcna) #32308
 dim(filtered_stringent_counts_wgcna) #28770
+dim(filtered_vstringent_counts_wgcna) #24421
 
 rlog_filtered_counts_wgcna <- rlog(as.matrix(filtered_stringent_counts_wgcna)) %>%
+  data.frame()
+rlog_filtered_vstringent_counts_wgcna <- rlog(as.matrix(filtered_vstringent_counts_wgcna)) %>%
   data.frame()
 
 write.table(rlog_filtered_counts_wgcna,
             file="analysis/WGCNA/rlog_filtered_counts_wgcna.tsv",
-            quote = F, row.names = T, sep = "\t")
+            quote = F, row.names = T, sep = "\t", col.names = T)
+write.table(rlog_filtered_vstringent_counts_wgcna,
+            file="analysis/WGCNA/rlog_filtered_vstringent_counts_wgcna.tsv",
+            quote = F, row.names = T, sep = "\t", col.names = T)
+
+#### write vstringent expr data for iterativeWGCNA ####
+nd_expr_vstringent <- data.frame(rlog_filtered_vstringent_counts_wgcna) %>%
+  dplyr::select(starts_with("non.dune")) %>%
+  rownames_to_column("gene")
+write.table(x = nd_expr_vstringent,
+            file = "analysis/WGCNA/iterativeWGCNA/non_dune_expr_data.iterWGCNA.tsv",
+            quote = F, sep="\t", row.names = F)
+d_expr_vstringent <- data.frame(rlog_filtered_vstringent_counts_wgcna) %>%
+  dplyr::select(starts_with("dune")) %>%
+  rownames_to_column("gene")
+write.table(x = d_expr_vstringent,
+            file = "analysis/WGCNA/iterativeWGCNA/dune_expr_data.iterWGCNA.tsv",
+            quote = F, sep="\t", row.names = F)
 
 #### 2. reformat expression data into a list of lists for WGCNA check data ####
-non_dune_expr_data <- data.frame(t(rlog_filtered_counts_wgcna %>%
+non_dune_expr_data <- data.frame(t(rlog_filtered_vstringent_counts_wgcna %>%
   dplyr::select(starts_with("non.dune"))))
-dune_expr_data <- data.frame(t(rlog_filtered_counts_wgcna %>% 
+dune_expr_data <- data.frame(t(rlog_filtered_vstringent_counts_wgcna %>% 
   dplyr::select(starts_with("dune"))))
 
 num_sets <- 2 #two sets, dune and non dune
@@ -68,11 +92,11 @@ for(set in 1:num_sets) {
        xlab="", sub="", cex = 0.7)
 }
 
-#### 2.5 determine soft thresholding power ####
-#Scale-free toplogy analysis and choosing soft-thresholding power 
-#NOTE: Only need to run this chunk of code one time to determine an appropriate soft-thresholding power 
+#### 2.5 scale-free topology and determine soft thresholding power ####
+# NOTE: Only need to run this chunk of code one time
+# to determine an appropriate soft-thresholding power 
 
-#choose a set of soft-thresholding powers to try (default from tutorial)
+# choose a set of soft-thresholding powers to try (default from tutorial)
 powers = c(seq(4,10,by=1), seq(12,30, by=2))
 power_tables = vector(mode = "list", length = num_sets)
 for(set in 1:num_sets) {
@@ -107,7 +131,8 @@ for (col in 1:length(plot_cols)) for (set in 1:num_sets)
   if (set==1)
   {
     plot(power_tables[[set]]$data[,1], -sign(power_tables[[set]]$data[,3])*power_tables[[set]]$data[,2],
-         xlab="Soft Threshold (power)",ylab=col_names[col],type="n", ylim = ylim[, col],
+         xlab="Soft Threshold (power)", ylab=col_names[col],
+         type="n", ylim = ylim[, col],
          main = col_names[col]) + abline(h=0.8, col="red")
     addGrid();
   }
@@ -125,24 +150,34 @@ for (col in 1:length(plot_cols)) for (set in 1:num_sets)
     legend("topright", legend = set_labels, col = colors, pch = 20) 
 }
 
-# Choose power 16 (18?) for both based on plot scaleFreeAnalysis_mp.pdf--Choose first power that 
-# achieves a good model fit of scale-free topology (first power with an R^2 above 0.8)
-# I chose the same value for both networks to more easily compare them, and because 16 is a
-# pretty good value for both 
+# Choose power 18 for both based on plots above Choose first power that 
+# achieves a good model fit of scale-free topology (first power with an R^2 ~ 0.8)
+# I chose the same value for both networks to more easily compare them, and because 18 is a
+# pretty good value for both. Also, 18 is recommended by the WGCNA developers for
+# smaller sample sizes: 
+# https://horvath.genetics.ucla.edu/html/CoexpressionNetwork/Rpackages/WGCNA/faq.html
+
+# check scale-free network topology
+k1=softConnectivity(datExpr = multi_expr[[1]]$data, power=18) #non-dune
+k2=softConnectivity(datExpr = multi_expr[[2]]$data, power=18) #dune
+pdf(file="figures/scale_free_topology.pdf", width=3.45, height=1.75)
+par(mfrow=c(1,2))
+scaleFreePlot(k1)
+scaleFreePlot(k2)
 
 #### 3. build networks and plot dendrograms ####
 nd_network <- blockwiseModules(multi_expr[[1]]$data, maxBlockSize = 30000,
                               power = 18, minModuleSize = 30,
                               networkType = "signed", deepSplit = 2,
                               TOMType = "signed",mergeCutHeight = 0.25,
-                              numericLabels = TRUE, minKMEtoStay = 0,
+                              numericLabels = TRUE, minKMEtoStay = 0.3,
                               saveTOMs = FALSE,  verbose = 4, nThreads = 20)
 
 d_network <- blockwiseModules(multi_expr[[2]]$data, maxBlockSize = 30000,
                               power = 18, minModuleSize = 30,
                               networkType = "signed", deepSplit = 2,
                               TOMType = "signed",mergeCutHeight = 0.25,
-                              numericLabels = TRUE, minKMEtoStay = 0,
+                              numericLabels = TRUE, minKMEtoStay = 0.3,
                               saveTOMs = FALSE, verbose = 4, nThreads = 20)
 
 # module labels as colors for nondune set
@@ -159,19 +194,19 @@ table(d_network$colors)
 
 # make a dataframe of the module colors and sizes
 mod_sizes_df <- data.frame(table(d_colors)) %>%
-  rename(mod_color=d_colors) %>%
+  dplyr::rename(mod_color=d_colors) %>%
   mutate(Ecotype="Dune") %>%
   full_join(data.frame(table(nd_colors)) %>% 
-              rename(mod_color=nd_colors) %>%
+              dplyr::rename(mod_color=nd_colors) %>%
               mutate(Ecotype="Non-dune")) %>%
-  rename(mod_size=Freq)
+  dplyr::rename(mod_size=Freq)
 
 # exclude gold (module created with random genes) and grey (module of all unplaced genes) 
 mod_sizes_df %>% filter(!mod_color %in% c("gold", "grey")) %>%
   group_by(Ecotype) %>%
   summarise(Mean=mean(mod_size), N=n())
 
-fit_mod_sizes <- lm(log(mod_size) ~ -1 + Ecotype, data=mod_sizes_df)
+fit_mod_sizes <- lm(log(mod_size) ~ Ecotype, data=mod_sizes_df)
 summary(fit_mod_sizes)
 
 ## average module size when not excluding grey and gold

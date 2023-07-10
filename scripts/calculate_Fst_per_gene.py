@@ -20,7 +20,7 @@ pop1_idx = subpops[pop1]
 pop2_idx = subpops[pop2]
 
 # read-in custom gene windows
-all_windows = pd.read_table("analysis/Fst/custom_gene_windows.bed",
+all_windows = pd.read_table("analysis/Fst/single_gene_windows_5kb_buffer.bed",
   dtype={'win_start':int})
   
 chroms = ['Ha412HOChr01', 'Ha412HOChr02', 'Ha412HOChr03', 'Ha412HOChr04',
@@ -77,4 +77,4 @@ results = pd.DataFrame({
   'Fst': res_a,
   'n_vars': res_c})
 
-results.to_csv("analysis/Fst/Fst_custom_gene_windows.allel.csv", na_rep='NA', index=False)
+results.to_csv("analysis/Fst/Fst_single_gene_windows_5kb_buffer.allel.csv", na_rep='NA', index=False)

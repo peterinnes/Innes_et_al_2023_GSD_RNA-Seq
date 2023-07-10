@@ -38,7 +38,7 @@ echo "beginning final genotyping..."
 gatk GenotypeGVCFs \
     -R $ref \
     -V ${out_dir}dune_non-dune.joint.vcf.gz \
-    -O ${out_dir}dune_non-dune.vcf.gz 
+    -O ${out_dir}dune_non-dune.unfiltered.hc.vcf.gz
 
 # clean up
 #rm $out_dir*.g.vcf*

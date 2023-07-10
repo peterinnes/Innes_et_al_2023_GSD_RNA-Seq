@@ -29,9 +29,14 @@ echo 'calculating 100kb windowed Fst'
 vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 100000 --fst-window-step 100000 --stdout \
 	> Fst_100Kb_windows.weir.txt 
 
+echo 'calculating 500kb windowed Fst'
+vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 500000 --fst-window-step 500000 --stdout \
+    > Fst_500Kb_windows.weir.txt
+
 echo 'calculating 1Mb windowed Fst'
 vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 1000000 --fst-window-step 1000000 --stdout \
     > Fst_1Mb_windows.weir.txt
 echo 'calculating 2Mb windowed Fst'
 vcftools --gzvcf $VCF --weir-fst-pop dune_samples.txt --weir-fst-pop non-dune_samples.txt --fst-window-size 2000000 --fst-window-step 2000000 --stdout \
     > Fst_2Mb_windows.weir.txt
+
