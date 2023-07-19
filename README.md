@@ -7,13 +7,13 @@ This directory contains code from [Innes et al. (2023)](https://doi.org/10.1101/
 ##### Seedling traits and sampling map
 analyze_seedling_traits.R  
 plot_sampling_map.R 
-
+  
 
 ##### Trimming and alignment:
 fastp_trim.sh  
 STAR_genomeGenerate.sh  
 STAR_align.sh
-
+  
 
 ##### SNP calling:
 process_bams_for_gatk.sh  
