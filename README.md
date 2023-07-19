@@ -33,7 +33,7 @@ rmats.py #copy of rMATS source code. We changed the filtering scheme on lines 33
 run_rMATS.sh  
 analyse_splicing_rMATS.R
 
-##### Smith et al differential splicing pipeline. Scripts with same number can be run in either order.
+##### Smith et al differential splicing pipeline. Adapted from [Smith et al. 2021](https://github.com/chriscrsmith/SunflowerAberrantSplicing). Scripts with same number can be run in either order.
 diff_iso/00_Trinity_all_samples.sh  
 diff_iso/01_remove_redundant_transcripts_cd-hit.sh  
 diff_iso/02_blast_transcriptome_to_genome.sh  
