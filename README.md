@@ -40,7 +40,7 @@ run_rMATS.sh
 analyse_splicing_rMATS.R
 
 
-##### Smith et al differential splicing pipeline. Adapted from [Smith et al. 2021](https://github.com/chriscrsmith/SunflowerAberrantSplicing). Scripts with same number can be run in either order.
+##### Smith et al differential splicing pipeline. Adapted from [Smith et al. 2021](https://github.com/chriscrsmith/SunflowerAberrantSplicing). Scripts with same number can be run in either order:
 diff_iso/00_Trinity_all_samples.sh  
 diff_iso/01_remove_redundant_transcripts_cd-hit.sh  
 diff_iso/02_blast_transcriptome_to_genome.sh  
@@ -60,13 +60,13 @@ diff_iso/12_compare_rMATS_and_Smith_et_al.sh
 diff_iso/get_longest_isoforms.py
 
 
-##### WGCNA
+##### Coexpression analysis:
 WGCNA/WGCNA.R  
 WGCNA/iterativeWGCNA.R  
 WGCNA/analyze_iterativeWGCNA.R
 
 
-##### GO enrichment analysis
+##### GO enrichment analysis:
 blastx_HAN412_cds_to_Ath_peps.sh  
 parse_Ath_GO_terms.py  
 get_Ha412HO_GO_terms.R  
@@ -74,17 +74,17 @@ run_GO_enrichment_and_clustering.sh
 analyze_GO_enrichment.R
 
 
-##### Look for spliceosomal homologs
+##### Look for spliceosomal homologs:
 blast_spliceosome_to_transcripts.sh
 
 
-##### Downstream analyses
-pca.R  
-analyze_inversions.R  
-analyze_overlaps.R  
-analyze_Goebl_2022_loci.R  
-analyze_Fst.R
+##### Downstream analyses:
+pca.R # PCA for figure 2
+analyze_inversions.R #enrichment of DE and DS genes within major inversions
+analyze_overlaps.R #overlaps between gene sets 
+analyze_Goebl_2022_loci.R #proximity of DE and DS genes to Goebl et al 2022 adaptive loci
+analyze_Fst.R #Fst of different gene sets, etc
 
 
-##### CODE FOR MAIN TEXT FIGURES. This supercedes code within other scripts for main text figures.
+##### CODE FOR MAIN TEXT FIGURES. This supercedes code within other scripts for main text figures:
 figures_main_text.R
