@@ -22,7 +22,6 @@ gatk VariantFiltration \
  --filter "QD < 2.0" \
  -O ${out_dir}dune_non-dune.gatk_filtered.hc.vcf.gz
 
-
 # filters for vcftools
 MAF=0.05
 MISS=1
@@ -34,7 +33,3 @@ vcftools --gzvcf ${out_dir}dune_non-dune.gatk_filtered.hc.vcf.gz \
 --min-meanDP $MIN_DEPTH \
 --minDP $MIN_DEPTH --recode --stdout | gzip -c \
 > ${out_dir}dune_non-dune.filtered.hc.vcf.gz
-
-#minDP/maxDP: min or maxdepth allowed for a genotype - any individual failing this threshold is marked as having a missing genotype. min-meanDP and max-meanDP are the min/max depth for a site.
-
-#maybe should split vcf by population before this step, in order to filter by missingness per population?

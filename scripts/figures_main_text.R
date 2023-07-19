@@ -5,10 +5,6 @@ library(patchwork)
 library(eulerr)
 library(ggplotify)
 
-# colors
-colDune <- rgb(t(col2rgb("orange")),alpha=230,maxColorValue = 255)
-colNon <- rgb(t(col2rgb("royalblue")),alpha=220,maxColorValue = 255)
-
 #### Fig 1 (map and seedling traits) ####
 load("data2/Rdata/gsd_sampling_map.Rdata") #from plot_sampling_map.R
 load("data2/Rdata/seedling_phenotype_data.Rdata") #from analyze_seedling_traits.R
@@ -177,35 +173,15 @@ plot_2C <- ggplot(data=rmats_splice_pca.site_sc,
   scale_fill_manual(values=c("gold2", "forestgreen")) +
   scale_shape_manual(values=c(24,21))
 
-#FIG_1_v2 <- gsd_sampling_map + plot_2A + plot_1C + plot_1D + plot_layout(widths = 1)
 FIG_2 <- plot_spacer() + plot_2A + plot_2B + plot_2C + plot_layout(widths = 1)
-ggsave("figures/FIG_1_v2_raw.pdf", plot=FIG_1_v2,device = "pdf",
+ggsave("figures/FIG_2_R1.pdf", plot=FIG_1_v2,device = "pdf",
        height = 86.625, width = 115.5, dpi = 300, units = "mm")
 
 #### Figure 3 (Co-expression networks) ####
 load("data2/Rdata/WGCNA_networks.mean_counts_3.softPower_18.minModuleSize_30.Rdata.Rdata")
 load("data2/Rdata/WGCNA_module_preservation.mean_counts_3.softPower_18.minModuleSize_30.Rdata")
 
-# Panel A
-mod_sizes_df <- data.frame(table(d_colors)) %>%
-  rename(mod_color=d_colors) %>%
-  mutate(Ecotype="Dune") %>%
-  full_join(data.frame(table(nd_colors)) %>% 
-              rename(mod_color=nd_colors) %>%
-              mutate(Ecotype="Non-dune")) %>%
-  rename(mod_size=Freq)
-
-jitter <- position_jitter(width = 0.2, height = 0.1)
-plot_mod_sizes <- ggplot(data=mod_sizes_df %>% filter(!mod_color %in% c("gold", "grey")),
-       aes(x=Ecotype, y=log(mod_size))) +
-  geom_point(aes(fill=mod_color), shape=21, size=3, position = jitter) +
-  scale_y_continuous(limits = c(3.25,8), breaks=c(4,6,8)) +
-  scale_fill_identity() +
-  geom_boxplot(alpha=0.5, outlier.shape = NA) +
-  theme_bw(base_size = 8) +
-  labs(y="log(Module size)")
-
-# Panel B (module preservation)
+# plot module preservation
 ref <- 1 #non-dune
 test <- 2 #dune 
 mod_colors <- rownames(module_preservation$preservation$observed[[ref]][[test]])
@@ -234,25 +210,36 @@ squash_axis <- function(from, to, factor) {
   return(trans_new("squash_axis", trans, inv))
 }
 
-plot_mod_pres <- ggplot(data=mod_pres_df %>% filter(!mod_colors %in% c("gold", "grey")),
-       aes(x=mod_sizes, y=z_summary)) +
-  geom_point(aes(fill=mod_colors),shape=21, size=3) +
-  scale_fill_identity() +
-  theme_bw(base_size = 8) +
-  scale_x_continuous(trans = "log10",limits = c(20,2000),
-                     breaks = c(20, 100, 500, 2000)) +
-  scale_y_continuous(trans = squash_axis(50, 100, 10),
-                     limits = c(-2.5,100), breaks = c(10,25,40,50,75,100)) +
-  #coord_trans(x = "log10") +
-  geom_hline(yintercept = 0) +
-  geom_hline(yintercept = 2, lty=2, col="blue") +
-  geom_hline(yintercept = 10, lty=2, col="dark green") +
-  labs(x="Module size", y="Preservation Zsummary")
-  
+plot_mod_pres <- ggplot(data=mod_pres_df %>%
+                            filter(!mod_colors %in% c("gold", "grey")),
+                        aes(x=mod_sizes, y=z_summary)) +
+    geom_point(aes(fill=mod_colors),shape=21, size=2) +
+    scale_fill_identity() +
+    theme_bw(base_size = 8) +
+    scale_x_continuous(trans = "log10",limits = c(20,2000),
+                       breaks = c(20, 100, 500, 2000)) +
+    scale_y_continuous(trans = squash_axis(50, 100, 10),
+                       limits = c(-2.5,100), breaks = c(10,25,40,50,75,100)) +
+    #coord_trans(x = "log10") +
+    geom_hline(yintercept = 0) +
+    geom_hline(yintercept = 2, lty=2, col="blue") +
+    geom_hline(yintercept = 10, lty=2, col="dark green") +
+    labs(x="Module size", y="Preservation Zsummary")
 
-plot_mod_sizes + plot_mod_pres
-ggsave("figures/FIG_coexpression_raw.pdf", plot=plot_mod_sizes + plot_mod_pres,
-       device = "pdf", height = 75, width = 115.5, dpi = 300, units = "mm")
+plot_mod_pres_violin <- ggplot(data=mod_pres_df %>%
+                            filter(!mod_colors %in% c("gold", "grey")) %>% 
+                            mutate(Comparison=""),
+                            aes(x=Comparison, y=z_summary)) + 
+    geom_violin(alpha=0.25, fill="grey") +
+    geom_boxplot(width=.2) +
+    geom_hline(yintercept = 10, lty=2, color="dark green") +
+    geom_hline(yintercept = 2, lty=2, color="blue") +
+    scale_y_continuous(limits = c(-1.25,100)) +
+    theme_bw(base_size = 8) +
+    labs(x = "Non-dune vs Dune", y = "Preservation Zsummary")
+
+ggsave("figures/FIG_coexpression_R1.pdf", plot = plot_mod_pres_violin + plot_mod_pres,
+       device = "pdf", height = 57.75, width = 115.5, dpi = 300, units = "mm")
 
 #### Figure 4 (Manhattan plots) #####
 load("data2/Rdata/Fst_500kb_windows.Rdata") #from analyze_Fst.R
@@ -496,7 +483,7 @@ splice_manhattan_plot <- ggplot(splice_manhattan_df_reduced,
   labs(x="Chromosome",y=~paste(Delta,"PSI"))
 
 # panel D
-load("data2/Rdata/Fst_genes_df.Rdata")
+load("data2/Rdata/Fst_genes_df.Rdata") #from analyze_Fst.R
 plot_Fst_vs_gene_sets <- ggplot(data=Fst_genes_df, aes(x=type, y=Fst, fill=type)) +
   geom_boxplot(alpha=0.5,linewidth=.25, outlier.size = .75,
                outlier.stroke = .125, outlier.alpha = .25) +
@@ -737,6 +724,3 @@ plot_GLH17_expr <- ggplot(data=norm_expr_df %>%
 plot_GLH17_expr + plot_GLH17_psi
 ggsave(filename = "figures/plot_GLH17_raw.pdf", plot = plot_GLH17_expr + plot_GLH17_psi,
        device = "pdf", dpi = 300, width = 58.3, height = 43.725, units = "mm")
-
-
-         

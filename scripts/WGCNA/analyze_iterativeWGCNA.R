@@ -1,6 +1,7 @@
 # analyze iterativeWGCNA results
 
-#### get the expression (count) data ####
+#### get and process expression (count) data ####
+# (same steps as for standard WGCNA)
 sample_table_deseq2 <- read.table("analysis/DESeq2/sample_table.txt", header=T)
 sample_table_deseq2$habitat <- as.factor(sample_table_deseq2$habitat)
 counts <- read.table("analysis/DESeq2/htseq-count_out/htseq-count_results.2022-6-26.txt",
@@ -13,7 +14,8 @@ filtered_vstringent_counts_wgcna <- counts[keep_vstringent_wgcna,] %>%
   mutate(d_n_zero=rowSums(dplyr::select(.,starts_with("dune")) == 0),
          nd_n_zero=rowSums(dplyr::select(.,starts_with("non-dune")) == 0)) %>%
   filter(d_n_zero <= 6 & nd_n_zero <= 6) %>%
-  dplyr::select(!c(d_n_zero, nd_n_zero))rlog_filtered_vstringent_counts_wgcna <- rlog(as.matrix(filtered_vstringent_counts_wgcna)) %>%
+  dplyr::select(!c(d_n_zero, nd_n_zero))
+rlog_filtered_vstringent_counts_wgcna <- rlog(as.matrix(filtered_vstringent_counts_wgcna)) %>%
   data.frame()
 non_dune_expr_data <- data.frame(t(rlog_filtered_vstringent_counts_wgcna %>%
                                      dplyr::select(starts_with("non.dune"))))
@@ -43,7 +45,7 @@ names(d_iter_mods) <- dune_iter_res$Gene
 d_iter_colors <- labels2colors(d_iter_mods)
 
 # match module labels b/w networks (ecotypes)
-d_iter_colors <- matchLabels(d_iter_colors, nd_iter_colors)
+#d_iter_colors <- matchLabels(d_iter_colors, nd_iter_colors)
 
 # make a dataframe of the module colors and sizes
 iter_mod_sizes_df <- data.frame(table(d_iter_colors)) %>%
@@ -57,26 +59,26 @@ iter_mod_sizes_df <- data.frame(table(d_iter_colors)) %>%
 # linear model, mod size ~ Ecotype. no sig difference
 fit_iter_mod_sizes <- lm(log(iter_mod_size) ~ Ecotype - 1, data=iter_mod_sizes_df)
 
-# number of modules with the same labels 
-length(intersect(unique(d_colors), unique(nd_colors)))
-
-# function for unique modules
-outersect <- function(x, y) {
-  sort(c(setdiff(x, y),
-         setdiff(y, x)))
-}
-
-outersect(unique(d_iter_colors), unique(nd_iter_colors))
-
-# Determining unique modules to each network: 
-# modules unique to non-dune
-nd_iter_unique_mods = setdiff(unique(nd_iter_colors), unique(d_iter_colors))
-
-# modules unique to dune 
-d_iter_unique_mods = setdiff(unique(d_iter_colors), unique(nd_iter_colors))
-
+## number of modules with the same labels 
+#length(intersect(unique(d_colors), unique(nd_colors)))
+#
+## function for unique modules
+#outersect <- function(x, y) {
+#  sort(c(setdiff(x, y),
+#         setdiff(y, x)))
+#}
+#
+#outersect(unique(d_iter_colors), unique(nd_iter_colors))
+#
+## Determining unique modules to each network: 
+## modules unique to non-dune
+#nd_iter_unique_mods = setdiff(unique(nd_iter_colors), unique(d_iter_colors))
+#
+## modules unique to dune 
+#d_iter_unique_mods = setdiff(unique(d_iter_colors), unique(nd_iter_colors))
+#
 # calculate module preservation
-multi_iter_color = list("Non-dune" = nd_iter_colors, "Dune" = d_iter_colors)
+multi_iter_color = list("Non-dune" = nd_iter_colors)
 iter_mod_preservation = modulePreservation(multi_iter_expr, multi_iter_color,
                                          dataIsExpr = TRUE, 
                                          networkType = "signed",
@@ -85,7 +87,6 @@ iter_mod_preservation = modulePreservation(multi_iter_expr, multi_iter_color,
                                          quickCor = 0, verbose = 3,
                                          maxModuleSize = 2000)
 
-save(iter_mod_preservation, file = "data2/Rdata/iterWGCNA_module_preservation.vanilla_defaults.Rdata")
+save(iter_mod_preservation, file = "data2/Rdata/iterWGCNA_module_preservation.Rdata")
 
-#### dendrogram ####
-#TOMsimilarityFromExpr(dune_expr_data, networkType="signed", power = 18)
+#plot the iterativeWGCNA module preservation results using same code from standard WGCNA

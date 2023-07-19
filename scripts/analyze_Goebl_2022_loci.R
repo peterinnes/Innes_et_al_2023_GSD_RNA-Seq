@@ -1,12 +1,14 @@
 library(GenomicRanges)
 library(dplyr)
-library(reshape2)
+library(tidyr)
+library(tibble)
 library(ggplot2)
+library(reshape2)
 
 # get ranges of all expressed genes
-expressed_genes <- read.table("analysis/DESeq2/expressed_genes.txt",
+expressed_genes <- read.table("data/expressed_genes.txt",
                               col.names = "Ha412_gene")
-genes_gff <- read.table("data/ref_genome_Ha412HO/HAN412_Eugene_curated_v1_1.genes_gff.tmp") %>%
+genes_gff <- read.table("data/HAN412_Eugene_curated_v1_1.genes_gff.tmp") %>% 
   dplyr::select(c(1:5,11)) %>%
   filter(!grepl("Chr00", V1)) #exclude ~550 genes on unplaced contigs
 
@@ -17,14 +19,13 @@ expressed_genes_ranges <- makeGRangesFromDataFrame(expressed_genes_gff,
                                                    keep.extra.columns = T)
 
 # DS genes
-DS_genes <- read.table("analysis/GO_analysis/study_DS_rMATS_genes.txt",
+DS_genes <- read.table("data/study_DS_rMATS_genes.txt",
                        col.names = c("Ha412_gene"))
 
 # DE + DS genes
-DE_DS_union_genes <- read.table("analysis/GO_analysis/study_DE_genes_noLFCthreshold.txt") %>%
+DE_DS_union_genes <- read.table("data/study_DE_genes_noLFCthreshold.txt") %>%
   dplyr::rename(Ha412_gene=V1) %>%
-  full_join(read.table("analysis/GO_analysis/study_DS_rMATS_genes.txt") %>%
-              dplyr::rename(Ha412_gene=V1)) %>%
+  full_join(DS_genes) %>%
   unique()
 
 # non-DE/DS genes i.e. "control" genes
@@ -33,26 +34,37 @@ control_genes <- expressed_genes_gff %>%
   dplyr::select(Ha412_gene)
 
 # get loci from Goebl et al 2022 
-goebl_2022_loci <- read.csv("analysis/adaptive_loci_Goebl_2022/20230609_GSDseqAnalyCombDat.csv",
-                header = T) %>%
-  dplyr::rename(chrom=CHROM, pos=POS) %>%
-  mutate(PVALS_H_adj=p.adjust(PVALS_H, method = "fdr")) %>%
-  #filter(PVALS_H < .05)
-  filter(PVALS_H_adj < .05)
-  #filter(DIFFS_Hd_ABS >= mean(DIFFS_Hd_ABS) + 4*sd(DIFFS_Hd_ABS)) 
-  #filter(DIFFS_Hd_ABS >= quantile(DIFFS_Hd_ABS, .95))
+goebl_2022_loci_95_quant <- read.csv("data/20230609_GSDseqAnalyCombDat.csv",
+                header = T) %>% 
+    dplyr::rename(chrom=CHROM, pos=POS) %>%
+    filter(DIFFS_Hd_ABS >= quantile(DIFFS_Hd_ABS, .95)) 
 
-goebl_2022_ranges <- makeGRangesFromDataFrame(goebl_2022_loci %>%
-                           mutate(start=pos-1, end=pos) %>%
-                           dplyr::select(chrom, start, end, DIFFS_Hd_ABS),
-                           keep.extra.columns = T)
+goebl_2022_loci_99_quant <- read.csv("data/20230609_GSDseqAnalyCombDat.csv",
+                                  header = T) %>%
+    dplyr::rename(chrom=CHROM, pos=POS) %>%
+    filter(DIFFS_Hd_ABS >= quantile(DIFFS_Hd_ABS, .99))
+
+goebl_2022_ranges_95_quant <- makeGRangesFromDataFrame(goebl_2022_loci_95_quant %>%
+                                                           mutate(start=pos-1, end=pos) %>%
+                                                           dplyr::select(chrom, start, end, DIFFS_Hd_ABS),
+                                                       keep.extra.columns = T)
+
+goebl_2022_ranges_99_quant <- makeGRangesFromDataFrame(goebl_2022_loci_99_quant %>%
+                                                           mutate(start=pos-1, end=pos) %>%
+                                                           dplyr::select(chrom, start, end, DIFFS_Hd_ABS),
+                                                       keep.extra.columns = T)
 
 #### get distance between genes of interest and Goebl et al 2022 SNPs ####
 # code below is adapted from Verta & Jones 2019 eLife. 
+
 # get distance between all expressed genes and closest locus adaptive locus
+# IMPORTANT: have to update 'hits' object 
+# for 95 quantile threshold vs 99 quantile threshold and then re-run subsequent code.
+# didn't have time to make a loop...
 expressed_genes_ranges$dist_to_adaptive <- NA
-hits <- distanceToNearest(expressed_genes_ranges, goebl_2022_ranges)
+hits <- distanceToNearest(expressed_genes_ranges, goebl_2022_ranges_95_quant)
 expressed_genes_ranges$dist_to_adaptive[queryHits(hits)] <- mcols(hits)$distance
+
 # split into test and control groups
 test_ranges <- expressed_genes_ranges[which(expressed_genes_ranges$Ha412_gene %in%
                                           DS_genes$Ha412_gene)]
@@ -79,7 +91,7 @@ dist_to_adaptive$set <- factor(dist_to_adaptive$set, levels = c("test", "control
 
 #### random expectation ####
 random_expectation_dist = data.frame()
-for (y in 1:50){
+for (y in 1:100){
   for (i in 1:length(windows)){
     r <- data.frame(control_ranges) %>%
       filter(Ha412_gene %in% sample(control_ranges$Ha412_gene,
@@ -100,7 +112,7 @@ random_expectation_95CI = data.frame(t(random_expectation_95CI)) %>%
 random_expectation_95CI$distance <- as.numeric(random_expectation_95CI$distance)
 
 #### plot ####
-plot_dist_to_goebl_loci <- ggplot(data = dist_to_adaptive) +
+plot_dist_to_goebl_loci_95_quant <- ggplot(data = dist_to_adaptive) +
   geom_line(aes(x=distance, y=proportion, linetype=set, color=set),
             linewidth=.25) +
   scale_color_manual(values = c("red", "black")) +
@@ -110,13 +122,32 @@ plot_dist_to_goebl_loci <- ggplot(data = dist_to_adaptive) +
               color='grey50', alpha=.25, linewidth=.25) +
   scale_x_continuous(limits = c(0,1000001)) +
   scale_y_continuous(limits = c(0,.3)) +
-  theme_bw(base_size = 8) +
+  theme_bw(base_size = 12) +
   theme(legend.position =  c(.1,.9),
         legend.title = element_blank(), 
         legend.background = element_blank()) +
   labs(x="Distance to nearest adaptive locus", y="Proportion of genes")
-ggsave("figures/plot_dist_to_goebl_loci.pdf", plot = plot_dist_to_goebl_loci,
-       device = "pdf", height = 43.725, width = 58.3, dpi = 300, units = "mm")
+ggsave("figures/plot_dist_to_goebl_loci_95_quant.pdf", plot = plot_dist_to_goebl_loci_95_quant,
+       device = "pdf", height = 65.625, width = 87.5, dpi = 300, units = "mm")
+
+plot_dist_to_goebl_loci_99_quant <- ggplot(data = dist_to_adaptive) +
+    geom_line(aes(x=distance, y=proportion, linetype=set, color=set),
+              linewidth=.25) +
+    scale_color_manual(values = c("red", "black")) +
+    scale_linetype_manual(values = c(1,2)) +
+    geom_ribbon(data=random_expectation_95CI,
+                aes(x=distance, ymin = min, ymax = max),
+                color='grey50', alpha=.25, linewidth=.25) +
+    scale_x_continuous(limits = c(0,1000001)) +
+    scale_y_continuous(limits = c(0,.1)) +
+    theme_bw(base_size = 12) +
+    theme(legend.position =  c(.1,.9),
+          legend.title = element_blank(), 
+          legend.background = element_blank()) +
+    labs(x="Distance to nearest adaptive locus", y="Proportion of genes")
+ggsave("figures/plot_dist_to_goebl_loci_99_quant.pdf", plot = plot_dist_to_goebl_loci_99,
+       device = "pdf", height = 65.625, width = 87.5, dpi = 300, units = "mm")
+
 #### randomization test ####
 test_control_df <- data.frame(test_ranges) %>% 
   mutate(set="test") %>%
@@ -132,11 +163,3 @@ for (i in 1:length(r) ){
 length(r[r<=mean(test_ranges$dist_to_adaptive)]) / length(r)
 mean(test_ranges$dist_to_adaptive)
 mean(control_ranges$dist_to_adaptive)
-
-#### which DS genes have distance of zero to adaptive loci? ####
-adaptive_DS_genes <- all_AS_events_deltaPSI %>%
-  filter(GeneID %in% test_ranges$Ha412_gene[test_ranges$dist_to_adaptive<100000]) %>%
-  filter(FDR < .05) %>%
-  group_by(GeneID) %>%
-  slice_max(abs(IncLevelDifference))
-View(adaptive_DS_genes)

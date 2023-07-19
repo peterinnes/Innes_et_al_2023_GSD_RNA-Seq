@@ -34,8 +34,18 @@ blastn \
 	-outfmt 6 \
 	> ~/gsd_RNA-seq/analysis/BLAST_out/Trinity_transcripts_vs_HAN412_transcripts.top_hits.blast
 
-cut -f1,2 ~/gsd_RNA-seq/analysis/BLAST_out/Trinity_transcripts_vs_HAN412_transcripts.top_hits.blast | sort -u > temp
-cut -f1 temp | sed 's/_i.*//g' > temp2
-paste temp2 temp > ~/gsd_RNA-seq/analysis/BLAST_out/Trinity_transcripts_vs_HAN412_transcripts.top_hits.txt
+#cut -f1,2 ~/gsd_RNA-seq/analysis/BLAST_out/Trinity_transcripts_vs_HAN412_transcripts.top_hits.blast | sort -u > temp
+#cut -f1 temp | sed 's/_i.*//g' > temp2
+#paste temp2 temp > ~/gsd_RNA-seq/analysis/BLAST_out/Trinity_transcripts_vs_HAN412_transcripts.top_hits.txt
 
+# get reciprocal best hits
+cd ~/gsd_RNA-seq/analysis/BLAST_out/
+sort -k1,1 -k12,12nr Trinity_transcripts_vs_HAN412_transcripts.top_hits.blast | uniq -w 30 > tophits_col1
+cut -f2 Trinity_transcripts_vs_HAN412_transcripts.blast > tmp1
+cut -f1,3- Trinity_transcripts_vs_HAN412_transcripts.blast > tmp2
+paste tmp1 tmp2 > tmp3
+sort -k1,1 -k12,12nr tmp3 | uniq -w 32 | cut -f1,2 > tophits_col2
+cat tophits_col* | sort | uniq -c | sort -k1nr | sed 's/^\s*//g'| grep '2 ' | cut -d ' ' -f2- \
+	> Trinity_transcripts_vs_HAN412_transcripts.reciprocal_best_hits.txt
 
+rm tmp1 tmp2 tophit_co1 tophits_col2
