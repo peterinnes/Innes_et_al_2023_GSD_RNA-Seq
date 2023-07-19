@@ -1,7 +1,7 @@
 Great Sand Dunes prairie sunflower (*Helianthus petiolaris*) ecotype transcriptomics
 ====================================
 
-This directory contains code from [Innes et al. (2023)](https://doi.org/10.1101/2023.04.22.537924) for the analysis of RNA-seq data from *H. petiolaris* populations in the Great Sand Dunes National Park. Scripts (within scripts/) are listed in analysis order.
+This directory contains code from [Innes et al. (2023)](https://doi.org/10.1101/2023.04.22.537924) for the analysis of RNA-seq data from *H. petiolaris* dune and non-dune ecotypes in Great Sand Dunes National Park, Colorado, USA. Scripts (within scripts/) are listed in analysis order.
 
 
 ##### Seedling traits and sampling map
