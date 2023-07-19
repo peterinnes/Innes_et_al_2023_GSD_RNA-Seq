@@ -79,11 +79,11 @@ blast_spliceosome_to_transcripts.sh
 
 
 ##### Downstream analyses:
-pca.R # PCA for figure 2
-analyze_inversions.R #enrichment of DE and DS genes within major inversions
-analyze_overlaps.R #overlaps between gene sets 
-analyze_Goebl_2022_loci.R #proximity of DE and DS genes to Goebl et al 2022 adaptive loci
-analyze_Fst.R #Fst of different gene sets, etc
+pca.R #PCA for figure 2  
+analyze_inversions.R #enrichment of DE and DS genes within major inversions  
+analyze_overlaps.R #overlaps between gene sets  
+analyze_Goebl_2022_loci.R #proximity of DE and DS genes to Goebl et al 2022 adaptive loci  
+analyze_Fst.R #Fst of different gene sets, Fst vs LFC/dPSI regressions, etc  
 
 
 ##### CODE FOR MAIN TEXT FIGURES. This supercedes code within other scripts for main text figures:
